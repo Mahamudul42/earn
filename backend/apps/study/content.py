@@ -14,7 +14,21 @@ Design (per advisor guidance):
 - Condition 3 adds an LLM assistant that only asks clarifying questions or gives
   short advice — it never rewrites the participant's words or invents preferences.
 """
+from django.utils import timezone
+
 from .models import Condition
+
+
+def current_edition_label() -> str:
+    """The masthead date shown on the newsletter.
+
+    Always today's date. The newsletter stimulus is fixed, but a hard-coded date
+    would make it read as stale to participants (and to anyone reviewing the
+    project later), so the date is rendered fresh on every request.
+    """
+    today = timezone.localdate()
+    return f"{today:%A} Edition · {today:%B} {today.day}, {today.year}"
+
 
 # Neutral, open-ended base prompt used in ALL conditions.
 PROMPT = "How would you like this newsletter to work better for you?"
@@ -50,18 +64,25 @@ CONDITION2_INSTRUCTION = (
     "Here are some aspects other readers sometimes think about. You don't have to use "
     "any of them."
 )
+# The aspects listed here are deliberately limited to things the newsletter can
+# actually act on: which articles get chosen, how much of each kind appears, and
+# where they sit. Aspects the system cannot do (rewriting or shortening article
+# text, adding background, using a publisher other than AP) are excluded on
+# purpose — prompting for them would push Condition-2 participants toward
+# infeasible requests and depress the system-feasibility rubric dimension
+# relative to Condition 1, confounding exactly the comparison being measured.
 CONDITION2_GUIDANCE = (
-    "For example: the topics or stories covered; the tone or balance; how local or "
-    "national it is; particular people or organizations; how detailed or in-depth the "
-    "stories are; the kinds of sources; the mix of sections; how recent the news is; "
-    "the length of the articles; the variety or diversity; or how much background and "
-    "context is included. These are only examples to spark ideas — there are no right "
-    "answers, and you can mention anything else, or none of these."
+    "For example: the topics or stories covered; how local or national it is; "
+    "particular people or organizations; the balance between different kinds of "
+    "news; the mix of sections; how recent the stories are; which stories appear "
+    "near the top; the variety or diversity of what you see; or how often the same "
+    "story comes up again. These are only examples to spark ideas — there are no "
+    "right answers, and you can mention anything else, or none of these."
 )
 CONDITION2_EXAMPLE = (
-    "For instance, someone might write: “I'd like a little more local coverage and "
-    "somewhat shorter articles, with less repetition of the same story, and a bit more "
-    "background on why each story matters.”"
+    "For instance, someone might write: “I'd like more local city coverage and "
+    "fewer celebrity stories, and when several articles cover the same event I'd "
+    "rather just see one of them.”"
 )
 
 CONDITION1_GUIDANCE = ""  # Base prompt only — no examples or extra support.

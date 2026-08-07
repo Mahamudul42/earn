@@ -12,8 +12,17 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Textarea } from "@/components/ui/Textarea";
 import { Spinner } from "@/components/ui/Spinner";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import type { ChatMessage, ConditionConfig } from "@/lib/types";
+
+/* The assistant never fabricates a turn: if the self-hosted model is
+   unreachable the API returns 503 and we tell the participant plainly, then
+   let them submit the feedback they have already written. */
+const ASSISTANT_DOWN =
+  "The feedback assistant is temporarily unavailable. You can try again, or submit the feedback you have already written.";
+
+const isAssistantDown = (e: unknown) =>
+  e instanceof ApiError && e.status === 503;
 
 interface Props {
   publicId: string;
@@ -58,7 +67,8 @@ export function FeedbackStep({ publicId, config, onComplete }: Props) {
   }, [chat, busy]);
 
   /* Ask the backend to consolidate everything the participant said into one
-     submission-ready draft. Falls back to their raw messages if it fails. */
+     submission-ready draft. If the model is unreachable we prefill with the
+     participant's own messages verbatim — their words, never invented text. */
   async function refreshDraft(log: ChatMessage[]) {
     if (finalDirtyRef.current) return;
     setDraftLoading(true);
@@ -102,8 +112,18 @@ export function FeedbackStep({ publicId, config, onComplete }: Props) {
         await api.submitFinal(publicId, text.trim(), seconds(), 0);
         onComplete();
       }
-    } catch {
-      setError("Something went wrong. Please try again.");
+    } catch (caught) {
+      if (isAssistantDown(caught)) {
+        // Move them into the confirm-and-submit panel with their own words so
+        // the session is never blocked by a model outage.
+        setError(ASSISTANT_DOWN);
+        setChat([{ role: "user", content: text.trim() }]);
+        setPhase("chat");
+        setShowFinalize(true);
+        setFinalText(text.trim());
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
     } finally {
       setBusy(false);
     }
@@ -130,10 +150,17 @@ export function FeedbackStep({ publicId, config, onComplete }: Props) {
       setChat(log);
       if (result.action === "ok") openFinalize(log);
       else if (showFinalize) void refreshDraft(log);
-    } catch {
-      setChat(chat);
-      setDraft(message);
-      setError("Something went wrong. Please try again.");
+    } catch (caught) {
+      if (isAssistantDown(caught)) {
+        // The backend kept their message; leave it in the transcript and let
+        // them review and submit what they have.
+        setError(ASSISTANT_DOWN);
+        openFinalize(optimistic);
+      } else {
+        setChat(chat);
+        setDraft(message);
+        setError("Something went wrong. Please try again.");
+      }
     } finally {
       setBusy(false);
     }

@@ -5,12 +5,13 @@ balanced across conditions and treated as a control variable. We assign each new
 participant to the least-filled (condition, newsletter) cell, breaking ties at
 random. This keeps the design balanced without needing a fixed enrollment cap.
 """
+
 import random
 
 from django.conf import settings
 from django.db.models import Count
 
-from .models import Condition, Newsletter, Participant
+from .models import Condition, Newsletter, Participant, StudyPhase
 
 
 def choose_cell(
@@ -44,16 +45,22 @@ def choose_cell(
             newsletters = match
 
     # Current counts per (condition, newsletter_id).
+    forced_preview = forced_condition in all_conditions or bool(forced_newsletter_slug)
+    phase = (
+        StudyPhase.PREVIEW
+        if forced_preview
+        else getattr(settings, "STUDY_PHASE", StudyPhase.PILOT)
+    )
+    if phase not in StudyPhase.values:
+        phase = StudyPhase.PILOT
     counts = {
         (row["condition"], row["newsletter_id"]): row["n"]
-        for row in Participant.objects.values("condition", "newsletter_id").annotate(
-            n=Count("id")
-        )
+        for row in Participant.objects.filter(study_phase=phase)
+        .values("condition", "newsletter_id")
+        .annotate(n=Count("id"))
     }
 
     cells = [(c, n) for c in conditions for n in newsletters]
     min_count = min(counts.get((c, n.id), 0) for c, n in cells)
-    candidates = [
-        (c, n) for c, n in cells if counts.get((c, n.id), 0) == min_count
-    ]
+    candidates = [(c, n) for c, n in cells if counts.get((c, n.id), 0) == min_count]
     return random.choice(candidates)

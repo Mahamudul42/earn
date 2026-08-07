@@ -18,7 +18,10 @@ import os
 from pathlib import Path
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.core.management.base import BaseCommand
+
+from apps.users.roles import HUMAN_RATER_GROUP
 
 from apps.study.models import Newsletter
 
@@ -48,9 +51,6 @@ class Command(BaseCommand):
                 slug=spec["slug"],
                 defaults={
                     "title": spec["title"],
-                    "edition_label": spec["edition_label"],
-                    "theme": spec.get("theme", ""),
-                    "intro": spec.get("intro", ""),
                     "sections": spec["sections"],
                     "is_active": True,
                 },
@@ -66,7 +66,9 @@ class Command(BaseCommand):
 
         # Researcher account (staff) for the dashboard / rating tool.
         username = os.environ.get("RESEARCHER_USERNAME", "researcher")
-        password = os.environ.get("RESEARCHER_PASSWORD", "researcher123")
+        password = os.environ.get(
+            "RESEARCHER_PASSWORD", "change-me-researcher-password"
+        )
         user, _ = User.objects.get_or_create(
             username=username,
             defaults={"email": "researcher@example.com", "is_staff": True},
@@ -74,9 +76,8 @@ class Command(BaseCommand):
         user.is_staff = True
         user.set_password(password)
         user.save()
+        rater_group, _ = Group.objects.get_or_create(name=HUMAN_RATER_GROUP)
+        user.groups.remove(rater_group)
         self.stdout.write(
-            self.style.SUCCESS(
-                f"Researcher account ready: {username} / {password} "
-                "(change in production)."
-            )
+            self.style.SUCCESS(f"Researcher account ready: {username}")
         )

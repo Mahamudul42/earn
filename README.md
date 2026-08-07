@@ -30,17 +30,25 @@ five-dimension actionability rubric and export the data for analysis.
 | 3 | **Interactive Feedback Assistant** | Participant writes feedback and has a short clarification conversation with the assistant. The participant reviews and submits the final version; the assistant never rewrites their feedback for them. |
 
 The assistant uses the self-hosted **OpenAI-compatible local LLM** (default
-`openai/gpt-oss-120b`). It never falls back to an external provider; if the
-local endpoint is unavailable, the built-in **deterministic rule-based**
-assistant keeps the participant flow usable without exporting participant data.
+`openai/gpt-oss-120b`) and nothing else. There is no external provider and no
+rule-based stand-in: if the local endpoint is unavailable the API returns
+`503` and the participant is told plainly, then allowed to submit the feedback
+they have already written. The assistant never fabricates a turn, so every
+stored conversation turn is genuine model output.
 
 **Researcher dashboard** (`/researcher`):
 
 - Enrollment overview + balance across (condition × newsletter).
-- A rating queue applying the **0–10 actionability rubric** (five 0/1/2
+- A **blind** rating queue applying the **0–10 actionability rubric** (five 0/1/2
   dimensions: target specificity, direction/operation, collection allocation,
   context/persistence, system feasibility) plus a target-level code.
-- One-click **CSV export** with feedback, survey items, and rating means.
+- Human rater account management — each rater gets their own login, and each
+  rater may score a given response only once.
+- One-click **CSV export** with feedback, the Condition-3 transcript, survey
+  items, and rating means.
+
+Statistical analysis is deliberately **not** part of this application. The CSV
+export is the hand-off point; analysis happens in R/Python.
 
 ## Tech stack
 
@@ -48,8 +56,9 @@ assistant keeps the participant flow usable without exporting participant data.
   lucide-react · Vitest.
 - **Backend:** Django 5 · Django REST Framework · JWT (simplejwt) ·
   drf-spectacular (OpenAPI).
-- **Database:** PostgreSQL 16.
-- **Containers:** Dockerfiles + `docker-compose` (PostgreSQL, backend, web).
+- **Database:** PostgreSQL 16 (the only supported database).
+- **Containers:** Dockerfiles + `docker-compose` — three services: PostgreSQL,
+  backend, web.
 
 ## Project layout
 
@@ -58,13 +67,15 @@ earn/
 ├── backend/                 # Django + DRF
 │   ├── apps/
 │   │   ├── core/            # health, pagination, permissions
-│   │   ├── users/           # JWT auth, researcher account
+│   │   ├── users/           # JWT auth, researcher + rater accounts
 │   │   └── study/           # newsletters, participants, assistant, rubric, export
 │   ├── project_backend/settings/{base,dev,prod}.py
+│   ├── system_prompt.txt    # live Condition-3 assistant prompt
 │   ├── tests/               # pytest
 │   └── Dockerfile
 ├── web/                     # Next.js
 │   └── src/{app,components,lib}
+├── documentation/           # codebase documentation (Bangla)
 ├── IRB/                     # IRB protocol documents
 ├── Eliciting_Actionable_Recommendation_Feedback_Proposal (11).docx
 ├── docker-compose.yml
@@ -73,26 +84,25 @@ earn/
 
 ---
 
-## Quick start — Docker (recommended)
+## Quick start
 
-Requires Docker + Docker Compose. One script runs everything:
+Requires Docker + Docker Compose, plus a self-hosted OpenAI-compatible LLM
+reachable at `LOCAL_LLM_BASE_URL` if you want to run Condition 3.
 
 ```bash
-./run.sh up         # build + start the whole stack (web, backend, db)
+./run.sh up         # build + start everything (web, backend, db)
 ```
 
-That's it. The script creates `.env` on first run, builds the images, migrates,
-seeds (3 newsletters + a researcher account), and waits until the backend is
-healthy before printing the URLs.
+The script creates `.env` on first run, builds the images, migrates, seeds
+(3 newsletters + a researcher account), and waits until the backend is healthy.
 
 - Participant site: <http://localhost:3000>
 - Researcher dashboard: <http://localhost:3000/researcher/login>
 - Backend API + docs: <http://localhost:8001/api/docs/>
-- Researcher login: values configured by `RESEARCHER_USERNAME` and
-  `RESEARCHER_PASSWORD` in `.env`.
+- Researcher login: `RESEARCHER_USERNAME` / `RESEARCHER_PASSWORD` in `.env`.
 
 For a new deployment, change `DJANGO_SECRET_KEY`, `POSTGRES_PASSWORD`, and
-`RESEARCHER_PASSWORD` before starting the stack.
+`RESEARCHER_PASSWORD` before starting.
 
 ### Manage the stack with `./run.sh`
 
@@ -110,79 +120,44 @@ For a new deployment, change `DJANGO_SECRET_KEY`, `POSTGRES_PASSWORD`, and
 | `./run.sh superuser` | Create a Django superuser |
 | `./run.sh manage <args>` | Run any `manage.py` command in the backend |
 | `./run.sh shell` | Shell into the backend container |
-| `./run.sh help` | Full usage |
+
+> **Source is baked into the images** — there is no volume mount. After changing
+> backend or frontend code (or `backend/system_prompt.txt`), rebuild:
+> `docker compose up -d --build backend` (or `web`). Restarting alone runs stale code.
 
 ### Ports
 
-Defaults are chosen to avoid clashing with other services: **web `3000`**,
-**backend `8001`**, and loopback-only Postgres `5436`.
-The Linux backend container uses host networking so it can reach the local LLM
-at `127.0.0.1:8123`. Change ports in `.env` (`WEB_PORT`, `BACKEND_PORT`,
-`DB_PORT`, and keep `NEXT_PUBLIC_API_BASE_URL` matching `BACKEND_PORT`), then
-run `./run.sh rebuild`.
+Defaults: **web `3000`**, **backend `8001`**, loopback-only Postgres `5436`.
+The backend container uses host networking so it can reach the local LLM at
+`127.0.0.1:8123`. Change ports in `.env` (`WEB_PORT`, `BACKEND_PORT`, `DB_PORT`,
+keeping `NEXT_PUBLIC_API_BASE_URL` matching `BACKEND_PORT`), then
+`./run.sh rebuild`.
 
-### Access from Windows over SSH
-
-The frontend calls the API from the browser, so forward both the web and API
-ports. For this server's current `.env` (`WEB_PORT=3002`,
-`BACKEND_PORT=8001`), run the following in Windows PowerShell and leave the
-terminal open:
+To reach it over SSH, forward **both** the web and API ports — the browser calls
+the API directly:
 
 ```powershell
-ssh -N -o ExitOnForwardFailure=yes `
-  -L 3002:127.0.0.1:3002 `
-  -L 8001:127.0.0.1:8001 `
-  hasan181@cs-u-jamjar.cs.umn.edu
+ssh -N -L 3000:127.0.0.1:3000 -L 8001:127.0.0.1:8001 user@host
 ```
-
-Then open <http://localhost:3002/?condition=3> to force the Condition-3 flow.
-The researcher dashboard is available at
-<http://localhost:3002/researcher/login>. If the SSH connection already exists,
-open a second PowerShell window for this tunnel command.
 
 ---
 
-## Quick start — local, no Docker
+## Data model
 
-This path requires a running PostgreSQL instance. Create the `earn` database
-and user, then set `DATABASE_URL` to its DSN. The example below uses the same
-loopback port and credentials as `.env.example`:
+Seven tables' worth of concepts, five models:
 
-### Backend (terminal 1)
+| Model | Purpose |
+|-------|---------|
+| `Newsletter` | Fixed 5×3 stimulus; sections/articles stored as JSON |
+| `Participant` | One session: condition, newsletter, status, study phase; identified by an unguessable `public_id` (UUID) that doubles as the completion code |
+| `FeedbackResponse` | 1:1 with participant — `initial_text`, `final_text`, the Condition-3 `chat_log`, and the consolidated `final_draft` |
+| `SurveyResponse` | 1:1 with participant — four 1–5 items |
+| `ActionabilityRating` | 1:N per response — five 0/2 rubric dimensions + target level; one row per (response, rater) |
 
-```bash
-cd backend
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements/dev.txt
-export DATABASE_URL=postgres://earn:change-me-db-password@127.0.0.1:5436/earn
-python manage.py migrate
-python manage.py seed_study           # newsletters + researcher account
-python manage.py runserver 0.0.0.0:8000
-```
-
-### Frontend (terminal 2)
-
-```bash
-cd web
-npm install
-echo "NEXT_PUBLIC_API_BASE_URL=http://localhost:8000" > .env.local
-npm run dev
-```
-
-Open <http://localhost:3000>.
-
----
-
-## The Interactive Feedback Assistant (Condition 3)
-
-- **Local model:** set `LOCAL_LLM_BASE_URL` and optionally `LOCAL_LLM_MODEL`
-  (default `openai/gpt-oss-120b`). `LOCAL_LLM_API_KEY` is optional because the
-  current endpoint does not require authentication.
-- **When the local endpoint fails:** a deterministic fallback asks a targeted
-  clarifying question. `assistant_used_llm` records which path produced each
-  turn. There is deliberately no external-provider fallback.
-
----
+`ActionabilityRating.total` is a computed property, not a stored column, so it
+can never go stale. Newsletters are `PROTECT`ed against deletion while any
+participant references them; deleting a rater account nulls `rater` but keeps
+the rating.
 
 ## Collecting data with participants
 
@@ -192,28 +167,45 @@ Send each participant to the site root; they get a fresh randomized assignment:
 https://your-host/?source=prolific&ref=PROLIFIC_PID
 ```
 
-- `source` → recorded as `recruitment_source` (`direct` | `movielens` |
-  `prolific` | `other`).
-- `ref` → recorded as `external_ref` (e.g. the Prolific participant id).
-- The completion code shown at the end is the participant’s `public_id`.
+- `source` → `recruitment_source` (`direct` | `movielens` | `prolific` | `other`).
+- `ref` → `external_ref` (e.g. the Prolific participant id).
+- The completion code shown at the end is the participant's `public_id`.
 
 Assignment is **balanced**: each new participant fills the least-populated
-(condition × newsletter) cell, so the design stays even as enrollment grows
-toward the target (~60 per condition).
+(condition × newsletter) cell, so the design stays even as enrollment grows.
+
+### Study phases
+
+`STUDY_PHASE` defaults to `pilot`. Forced URLs such as `?condition=3` are always
+stored as `preview`, so demos never mix into real data. Before real recruitment,
+set `STUDY_PHASE=main` in `.env` and restart. Assignment balance is calculated
+separately per phase.
+
+### Human raters
+
+The primary researcher account is a study manager. From `/researcher/raters`
+the manager can create, deactivate, and reset credentials for any number of
+raters. Give each person a separate username; never share one account, because
+every saved score retains that rater's identity.
+
+Raters sign in at `/researcher/login` and are sent straight to the blind rating
+queue. They cannot open the overview, exports, or participant conversation
+history. The queue hides experimental condition, initial feedback, the assistant
+conversation, and every other rater's scores — this prevents anchoring bias.
 
 ---
 
 ## Tests, linting, production build
 
 ```bash
-# Backend
-cd backend && source .venv/bin/activate
-pytest                         # auth, assistant, balanced assignment, full flow, permissions
+# Backend (tests are excluded from the production image, so mount the source)
+docker compose run --rm --no-deps -v "$(pwd)/backend:/app" backend \
+  sh -c "pip install -q pytest pytest-django && python -m pytest tests/ -q"
 
 # Frontend
 cd web
 npm run test                   # Vitest
-npm run lint                   # ESLint (next/core-web-vitals)
+npm run lint                   # ESLint
 npm run build                  # production build + type check
 ```
 
@@ -233,10 +225,15 @@ Interactive OpenAPI docs at `/api/docs/` (Swagger) and `/api/redoc/`.
 | Final feedback | `POST /api/session/{public_id}/feedback/final/` |
 | Survey | `POST /api/session/{public_id}/survey/` |
 | Researcher login | `POST /api/auth/token/` |
+| Current researcher/rater | `GET /api/auth/me/` |
+| Create/list human raters | `GET/POST /api/auth/raters/` |
+| Update/deactivate/reset rater | `PATCH /api/auth/raters/{id}/` |
 | Overview | `GET /api/research/overview/` |
 | Responses | `GET /api/research/responses/?condition=&unrated=1` |
 | Create rating | `POST /api/research/responses/{id}/ratings/` |
 | CSV export | `GET /api/research/export.csv` |
+
+The Condition-3 endpoints return `503` when the local model is unreachable.
 
 ---
 
@@ -247,13 +244,15 @@ See `.env.example` (root, for compose), `backend/.env.example`, and
 
 | Variable | Where | Purpose |
 |----------|-------|---------|
-| `DATABASE_URL` | backend | PostgreSQL DSN (required for local and production use) |
-| `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | compose | PostgreSQL database credentials |
+| `DATABASE_URL` | backend | PostgreSQL DSN (required) |
+| `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | compose | Database credentials |
 | `LOCAL_LLM_BASE_URL` | backend | Self-hosted OpenAI-compatible `/v1` base URL |
 | `LOCAL_LLM_MODEL` | backend | Defaults to `openai/gpt-oss-120b` |
 | `LOCAL_LLM_API_KEY` | backend | Optional local endpoint bearer token |
+| `STUDY_PHASE` | backend | `pilot` by default; set to `main` before real recruitment |
+| `STUDY_ENABLED_CONDITIONS` | backend | e.g. `1,2` to run without Condition 3 |
 | `RESEARCHER_USERNAME` / `RESEARCHER_PASSWORD` | backend | Seeded dashboard login |
-| `NEXT_PUBLIC_API_BASE_URL` | web | Backend URL the browser calls |
+| `NEXT_PUBLIC_API_BASE_URL` | web | Backend URL the browser calls (baked at build time) |
 
 ## Implementation notes
 
@@ -261,15 +260,11 @@ See `.env.example` (root, for compose), `backend/.env.example`, and
   style** (teal masthead, dark-blue section bars, thumbnail + topic-label +
   serif headline + summary), matching the reference template at
   <https://github.com/Mahamudul42/poprox_newsletter>. Each has the fixed 5×3
-  format (five sections, three articles) and is populated with **real Associated
-  Press articles** (headline, summary, image, link) harvested from that template;
-  the three editions differ in topical emphasis (world, U.S./politics,
-  tech/sports) for feedback diversity. Stimulus data lives in
+  format and is populated with **real Associated Press articles** harvested from
+  that template; the three editions differ in topical emphasis (world,
+  U.S./politics, tech/sports) for feedback diversity. Stimulus data lives in
   `backend/apps/study/seed_data/newsletters.json`.
-- **Feedback is on the same page as the newsletter** — the participant reads the
-  newsletter and writes feedback directly beneath it (mirroring POPROX's own
-  end-of-newsletter feedback block), rather than on a separate screen.
-- **No production newsletter service is required** — the study is
-  self-contained and uses fixed newsletter stimuli.
-- **LLM rubric scoring** is available through the `rate_with_llm` management
-  command. Human ratings remain separate through the `is_llm` field.
+- **Feedback is on the same page as the newsletter** — the participant reads and
+  writes feedback directly beneath it, mirroring POPROX's own end-of-newsletter
+  feedback block.
+- **No production newsletter service is required** — the study is self-contained.

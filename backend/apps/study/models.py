@@ -7,6 +7,7 @@ assigned one newsletter and one condition, reads the newsletter, writes
 feedback, and completes a post-task survey. Researchers later score each final
 feedback response with the five-dimension actionability rubric.
 """
+
 import uuid
 
 from django.conf import settings
@@ -26,6 +27,12 @@ class RecruitmentSource(models.TextChoices):
     OTHER = "other", "Other"
 
 
+class StudyPhase(models.TextChoices):
+    PREVIEW = "preview", "Preview / demo"
+    PILOT = "pilot", "Pilot"
+    MAIN = "main", "Main experiment"
+
+
 class TargetLevel(models.TextChoices):
     ARTICLE = "article", "Individual article"
     SECTION = "section", "Newsletter section"
@@ -43,16 +50,9 @@ class Newsletter(models.Model):
 
     slug = models.SlugField(unique=True)
     title = models.CharField(max_length=160)
-    edition_label = models.CharField(
-        max_length=120, help_text="e.g. 'Saturday Edition · June 21, 2026'"
-    )
-    theme = models.CharField(
-        max_length=80,
-        blank=True,
-        help_text="Editorial slant of this stimulus, e.g. 'General news', 'Technology'.",
-    )
-    intro = models.TextField(blank=True)
-    # sections: list of {"name": str, "articles": [{"headline","source","summary"}]}
+    # The masthead date is not stored: it is rendered from today's date by
+    # content.current_edition_label() so the stimulus never reads as stale.
+    # sections: list of {"name": str, "articles": [{"label","headline","summary","image","url"}]}
     sections = models.JSONField(default=list)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -68,9 +68,7 @@ class Participant(models.Model):
     class Status(models.TextChoices):
         CREATED = "created", "Created"
         CONSENTED = "consented", "Consented"
-        VIEWED = "viewed", "Viewed newsletter"
         FEEDBACK = "feedback", "Submitted feedback"
-        SURVEY = "survey", "Completed survey"
         COMPLETED = "completed", "Completed"
 
     public_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
@@ -93,7 +91,9 @@ class Participant(models.Model):
     )
     consented_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
-    user_agent = models.CharField(max_length=400, blank=True)
+    study_phase = models.CharField(
+        max_length=12, choices=StudyPhase.choices, default=StudyPhase.PILOT
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -129,10 +129,8 @@ class FeedbackResponse(models.Model):
     assistant_message = models.TextField(
         blank=True, help_text="The latest assistant response shown in Condition 3."
     )
-    assistant_used_llm = models.BooleanField(default=False)
     # Full Condition-3 conversation, oldest first. Each entry:
-    # {"role": "user"|"assistant", "content": str, "action": str?,
-    #  "used_llm": bool?, "provider": str?, "ts": iso-datetime}
+    # {"role": "user"|"assistant", "content": str, "action": str?, "ts": iso-datetime}
     chat_log = models.JSONField(default=list, blank=True)
     # The consolidated draft shown in the confirm-and-submit panel (Condition 3),
     # assembled from everything the participant said. Comparing it with
@@ -174,8 +172,12 @@ class SurveyResponse(models.Model):
 
 
 class ActionabilityRating(models.Model):
-    """A single human (or LLM) score of a final feedback response against the
-    five-dimension rubric. Each dimension is 0/1/2; total is 0–10."""
+    """A single human score of a final feedback response against the
+    five-dimension rubric. Each dimension is 0/1/2; total is 0–10.
+
+    Each rater may score a given response only once. Ratings are entered blind:
+    the rater never sees the condition or any other rater's score.
+    """
 
     feedback = models.ForeignKey(
         FeedbackResponse, on_delete=models.CASCADE, related_name="ratings"
@@ -187,7 +189,6 @@ class ActionabilityRating(models.Model):
         blank=True,
         related_name="ratings",
     )
-    is_llm = models.BooleanField(default=False)
 
     target_specificity = models.PositiveSmallIntegerField()
     direction_operation = models.PositiveSmallIntegerField()
@@ -203,6 +204,12 @@ class ActionabilityRating(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["feedback", "rater"],
+                name="unique_rating_per_rater_per_response",
+            )
+        ]
 
     @property
     def total(self) -> int:

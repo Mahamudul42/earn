@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Spinner } from "@/components/ui/Spinner";
 import { api } from "@/lib/api";
-import { saveToken } from "@/lib/auth";
+import { saveSession } from "@/lib/auth";
 
 export default function ResearcherLogin() {
   const router = useRouter();
@@ -23,9 +23,10 @@ export default function ResearcherLogin() {
     setBusy(true);
     setError(null);
     try {
-      const { access } = await api.login(username, password);
-      saveToken(access);
-      router.push("/researcher");
+      const { access, refresh } = await api.login(username, password);
+      saveSession(access, refresh);
+      const user = await api.me(access);
+      router.push(user.role === "rater" ? "/researcher/rate" : "/researcher");
     } catch {
       setError("Invalid username or password.");
       setBusy(false);

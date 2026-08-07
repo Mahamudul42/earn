@@ -139,3 +139,6 @@ LOCAL_LLM_TIMEOUT_SECONDS = env.int("LOCAL_LLM_TIMEOUT_SECONDS", default=45)
 STUDY_ENABLED_CONDITIONS = [
     int(c) for c in env.list("STUDY_ENABLED_CONDITIONS", default=["1", "2", "3"])
 ]
+# Keep deployment testing out of the confirmatory analysis set until the
+# researcher explicitly switches the environment to ``main``.
+STUDY_PHASE = env("STUDY_PHASE", default="pilot")

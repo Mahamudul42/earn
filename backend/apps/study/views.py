@@ -1,7 +1,7 @@
 import csv
 import json
-from pathlib import Path
 
+from django.db import IntegrityError
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -12,20 +12,15 @@ from rest_framework.views import APIView
 from django.http import HttpResponse
 
 from apps.core.pagination import DefaultPagination
-from apps.core.permissions import IsResearcher
+from apps.core.permissions import IsResearcher, IsStudyManager
+from apps.users.roles import is_human_rater
 
-from . import content
 from .assignment import choose_cell
 from .assistant import (
     ACTION_NONE,
-    SYSTEM_PROMPT,
-    active_model,
-    active_provider,
+    AssistantUnavailable,
     compose_final_feedback,
     get_assistant_reply,
-    live_check,
-    provider_status,
-    run_model,
 )
 from .models import (
     ActionabilityRating,
@@ -33,10 +28,12 @@ from .models import (
     FeedbackResponse,
     Newsletter,
     Participant,
+    StudyPhase,
     SurveyResponse,
 )
 from .serializers import (
     AssistantTurnSerializer,
+    BlindFeedbackSerializer,
     ChatMessageSerializer,
     FeedbackDetailSerializer,
     FinalFeedbackSerializer,
@@ -45,6 +42,22 @@ from .serializers import (
     SessionSerializer,
     StartSessionSerializer,
     SurveyResponseSerializer,
+)
+
+DIMENSIONS = (
+    "target_specificity",
+    "direction_operation",
+    "collection_allocation",
+    "context_persistence",
+    "system_feasibility",
+)
+
+# Shown to the participant when the self-hosted model cannot be reached. There
+# is deliberately no canned assistant reply: the participant is told the
+# assistant is unavailable rather than being given fabricated guidance.
+ASSISTANT_UNAVAILABLE_DETAIL = (
+    "The feedback assistant is temporarily unavailable. Please try again, or "
+    "submit the feedback you have already written."
 )
 
 
@@ -58,6 +71,13 @@ def _chat_entry(role: str, content: str, **extra) -> dict:
     return {"role": role, "content": content, "ts": timezone.now().isoformat(), **extra}
 
 
+def _assistant_unavailable() -> Response:
+    return Response(
+        {"detail": ASSISTANT_UNAVAILABLE_DETAIL},
+        status=status.HTTP_503_SERVICE_UNAVAILABLE,
+    )
+
+
 # --- Participant flow (public) ---------------------------------------------
 class StartSessionView(APIView):
     permission_classes = [AllowAny]
@@ -69,12 +89,21 @@ class StartSessionView(APIView):
             forced_condition=serializer.validated_data.get("condition"),
             forced_newsletter_slug=serializer.validated_data.get("newsletter") or None,
         )
+        forced_preview = bool(
+            serializer.validated_data.get("condition")
+            or serializer.validated_data.get("newsletter")
+        )
+        from django.conf import settings
+
+        configured_phase = getattr(settings, "STUDY_PHASE", StudyPhase.PILOT)
+        if configured_phase not in StudyPhase.values:
+            configured_phase = StudyPhase.PILOT
         participant = Participant.objects.create(
             condition=condition,
             newsletter=newsletter,
             recruitment_source=serializer.validated_data["recruitment_source"],
             external_ref=serializer.validated_data.get("external_ref", ""),
-            user_agent=request.META.get("HTTP_USER_AGENT", "")[:400],
+            study_phase=(StudyPhase.PREVIEW if forced_preview else configured_phase),
         )
         return Response(
             SessionSerializer(participant).data, status=status.HTTP_201_CREATED
@@ -116,20 +145,18 @@ class InitialFeedbackView(APIView):
         if participant.condition == Condition.ASSISTANT:
             # (Re)start the conversation from this initial feedback.
             log = [_chat_entry("user", initial)]
-            result = get_assistant_reply(log, newsletter=participant.newsletter)
+            try:
+                result = get_assistant_reply(log, newsletter=participant.newsletter)
+            except AssistantUnavailable:
+                # Keep the participant's words; they can retry or submit as-is.
+                feedback.save()
+                return _assistant_unavailable()
             log.append(
-                _chat_entry(
-                    "assistant",
-                    result.message,
-                    action=result.action,
-                    used_llm=result.used_llm,
-                    provider=result.provider,
-                )
+                _chat_entry("assistant", result.message, action=result.action)
             )
             feedback.chat_log = log
             feedback.assistant_action = result.action
             feedback.assistant_message = result.message
-            feedback.assistant_used_llm = result.used_llm
             feedback.save()
             participant.status = Participant.Status.FEEDBACK
             participant.save(update_fields=["status"])
@@ -138,7 +165,6 @@ class InitialFeedbackView(APIView):
                     {
                         "action": result.action,
                         "message": result.message,
-                        "used_llm": result.used_llm,
                         "assistant_turns": 1,
                     }
                 ).data
@@ -151,9 +177,7 @@ class InitialFeedbackView(APIView):
         participant.status = Participant.Status.FEEDBACK
         participant.save(update_fields=["status"])
         return Response(
-            AssistantTurnSerializer(
-                {"action": ACTION_NONE, "message": "", "used_llm": False}
-            ).data
+            AssistantTurnSerializer({"action": ACTION_NONE, "message": ""}).data
         )
 
 
@@ -185,26 +209,24 @@ class AssistantChatView(APIView):
             log = [_chat_entry("user", feedback.initial_text)]
         log.append(_chat_entry("user", serializer.validated_data["message"]))
 
-        result = get_assistant_reply(log, newsletter=participant.newsletter)
-        log.append(
-            _chat_entry(
-                "assistant",
-                result.message,
-                action=result.action,
-                used_llm=result.used_llm,
-                provider=result.provider,
-            )
-        )
+        try:
+            result = get_assistant_reply(log, newsletter=participant.newsletter)
+        except AssistantUnavailable:
+            # Persist what the participant said so their message is not lost,
+            # then report the outage.
+            feedback.chat_log = log
+            feedback.save(update_fields=["chat_log", "updated_at"])
+            return _assistant_unavailable()
+
+        log.append(_chat_entry("assistant", result.message, action=result.action))
         feedback.chat_log = log
         feedback.assistant_action = result.action
         feedback.assistant_message = result.message
-        feedback.assistant_used_llm = result.used_llm
         feedback.save(
             update_fields=[
                 "chat_log",
                 "assistant_action",
                 "assistant_message",
-                "assistant_used_llm",
                 "updated_at",
             ]
         )
@@ -213,7 +235,6 @@ class AssistantChatView(APIView):
                 {
                     "action": result.action,
                     "message": result.message,
-                    "used_llm": result.used_llm,
                     "assistant_turns": sum(
                         1 for m in log if m.get("role") == "assistant"
                     ),
@@ -242,10 +263,13 @@ class FinalDraftView(APIView):
         log = list(feedback.chat_log or [])
         if not log and feedback.initial_text:
             log = [_chat_entry("user", feedback.initial_text)]
-        draft, used_llm = compose_final_feedback(log, newsletter=participant.newsletter)
+        try:
+            draft = compose_final_feedback(log, newsletter=participant.newsletter)
+        except AssistantUnavailable:
+            return _assistant_unavailable()
         feedback.final_draft = draft
         feedback.save(update_fields=["final_draft", "updated_at"])
-        return Response({"draft": draft, "used_llm": used_llm})
+        return Response({"draft": draft})
 
 
 class FinalFeedbackView(APIView):
@@ -288,7 +312,7 @@ class SurveyView(APIView):
 
 # --- Researcher dashboard ---------------------------------------------------
 class OverviewView(APIView):
-    permission_classes = [IsResearcher]
+    permission_classes = [IsStudyManager]
 
     def get(self, request):
         cells = list(
@@ -297,7 +321,9 @@ class OverviewView(APIView):
                 completed=Count("id", filter=Q(status=Participant.Status.COMPLETED)),
             )
         )
-        per_condition = {c.value: {"label": c.label, "n": 0, "completed": 0} for c in Condition}
+        per_condition = {
+            c.value: {"label": c.label, "n": 0, "completed": 0} for c in Condition
+        }
         for row in cells:
             bucket = per_condition[row["condition"]]
             bucket["n"] += row["n"]
@@ -308,11 +334,7 @@ class OverviewView(APIView):
             status=Participant.Status.COMPLETED
         ).count()
         with_final = FeedbackResponse.objects.exclude(final_text="").count()
-        rated = (
-            FeedbackResponse.objects.filter(ratings__is_llm=False)
-            .distinct()
-            .count()
-        )
+        rated = FeedbackResponse.objects.filter(ratings__isnull=False).distinct().count()
         return Response(
             {
                 "total_participants": total,
@@ -341,17 +363,26 @@ class ResponseListView(APIView):
         newsletter = request.query_params.get("newsletter")
         if newsletter:
             qs = qs.filter(participant__newsletter__slug=newsletter)
-        if request.query_params.get("unrated") == "1":
+        phase = request.query_params.get("phase")
+        if phase in StudyPhase.values:
+            qs = qs.filter(participant__study_phase=phase)
+        blind_queue = (
+            request.query_params.get("unrated") == "1" or is_human_rater(request.user)
+        )
+        if blind_queue:
             qs = qs.exclude(ratings__rater=request.user)
 
         paginator = DefaultPagination()
         page = paginator.paginate_queryset(qs, request)
-        data = FeedbackDetailSerializer(page, many=True).data
+        serializer_class = (
+            BlindFeedbackSerializer if blind_queue else FeedbackDetailSerializer
+        )
+        data = serializer_class(page, many=True).data
         return paginator.get_paginated_response(data)
 
 
 class ResponseDetailView(APIView):
-    permission_classes = [IsResearcher]
+    permission_classes = [IsStudyManager]
 
     def get(self, request, pk):
         feedback = get_object_or_404(
@@ -368,20 +399,31 @@ class RatingCreateView(APIView):
 
     def post(self, request, pk):
         feedback = get_object_or_404(FeedbackResponse, pk=pk)
+        if ActionabilityRating.objects.filter(
+            feedback=feedback, rater=request.user
+        ).exists():
+            return Response(
+                {"detail": "You have already rated this response."},
+                status=status.HTTP_409_CONFLICT,
+            )
         serializer = RatingSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        rating = ActionabilityRating.objects.create(
-            feedback=feedback, rater=request.user, **serializer.validated_data
-        )
-        return Response(
-            RatingSerializer(rating).data, status=status.HTTP_201_CREATED
-        )
+        try:
+            rating = ActionabilityRating.objects.create(
+                feedback=feedback, rater=request.user, **serializer.validated_data
+            )
+        except IntegrityError:
+            return Response(
+                {"detail": "You have already rated this response."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        return Response(RatingSerializer(rating).data, status=status.HTTP_201_CREATED)
 
 
 class ExportView(APIView):
-    """Flat CSV of every completed-or-final response for analysis in R/Python."""
+    """Flat CSV of every response for analysis in R/Python."""
 
-    permission_classes = [IsResearcher]
+    permission_classes = [IsStudyManager]
 
     def get(self, request):
         response = HttpResponse(content_type="text/csv")
@@ -394,6 +436,7 @@ class ExportView(APIView):
                 "condition_label",
                 "newsletter",
                 "recruitment_source",
+                "study_phase",
                 "status",
                 "initial_text",
                 "final_text",
@@ -402,7 +445,6 @@ class ExportView(APIView):
                 # submitted (final_text) supports the faithfulness / edit analysis.
                 "final_draft",
                 "assistant_action",
-                "assistant_used_llm",
                 "assistant_turns",
                 "revision_count",
                 "time_on_task_seconds",
@@ -411,9 +453,11 @@ class ExportView(APIView):
                 "express",
                 "reflect",
                 "understand",
-                # ratings
-                "n_human_ratings",
+                # ratings (human)
+                "n_ratings",
                 "mean_actionability_total",
+                *[f"mean_{dimension}" for dimension in DIMENSIONS],
+                "target_levels_json",
                 # Full Condition-3 conversation as JSON (empty for conditions 1 & 2).
                 "chat_log_json",
             ]
@@ -426,10 +470,10 @@ class ExportView(APIView):
         for p in participants:
             fb = getattr(p, "feedback", None)
             sv = getattr(p, "survey", None)
-            human = (
-                [r.total for r in fb.ratings.all() if not r.is_llm] if fb else []
+            ratings = list(fb.ratings.all()) if fb else []
+            mean_total = (
+                round(sum(r.total for r in ratings) / len(ratings), 3) if ratings else ""
             )
-            mean_total = round(sum(human) / len(human), 3) if human else ""
             writer.writerow(
                 [
                     p.public_id,
@@ -437,14 +481,18 @@ class ExportView(APIView):
                     Condition(p.condition).label,
                     p.newsletter.slug,
                     p.recruitment_source,
+                    p.study_phase,
                     p.status,
                     fb.initial_text if fb else "",
                     fb.final_text if fb else "",
                     fb.final_draft if fb else "",
                     fb.assistant_action if fb else "",
-                    fb.assistant_used_llm if fb else "",
                     (
-                        sum(1 for m in (fb.chat_log or []) if m.get("role") == "assistant")
+                        sum(
+                            1
+                            for m in (fb.chat_log or [])
+                            if m.get("role") == "assistant"
+                        )
                         if fb
                         else ""
                     ),
@@ -455,8 +503,21 @@ class ExportView(APIView):
                         if sv
                         else [""] * 4
                     ),
-                    len(human),
+                    len(ratings),
                     mean_total,
+                    *(
+                        [
+                            round(
+                                sum(getattr(r, dimension) for r in ratings)
+                                / len(ratings),
+                                3,
+                            )
+                            for dimension in DIMENSIONS
+                        ]
+                        if ratings
+                        else [""] * len(DIMENSIONS)
+                    ),
+                    json.dumps([r.target_level for r in ratings]),
                     (
                         json.dumps(fb.chat_log, ensure_ascii=False)
                         if fb and fb.chat_log
@@ -465,110 +526,3 @@ class ExportView(APIView):
                 ]
             )
         return response
-
-
-# --- Prompt playground (researcher tool) ------------------------------------
-_SAMPLES_FILE = Path(__file__).resolve().parent / "seed_data" / "collected_samples.csv"
-_MAX_SAMPLES_PER_RUN = 25
-
-
-def _load_collected_samples() -> list[str]:
-    """Feedback texts collected via the pilot Google Form (bundled CSV)."""
-    if not _SAMPLES_FILE.exists():
-        return []
-    out = []
-    with _SAMPLES_FILE.open(encoding="utf-8", newline="") as f:
-        reader = csv.reader(f)
-        rows = list(reader)
-    # The feedback text is the last non-timestamp column; use column index 1 when
-    # present, else the last column.
-    for row in rows[1:]:
-        text = (row[1] if len(row) > 1 else (row[-1] if row else "")).strip()
-        if text:
-            out.append(text)
-    return out
-
-
-class PromptLabDefaultView(APIView):
-    """Return the current live Condition-3 system prompt as a starting point."""
-
-    permission_classes = [IsResearcher]
-
-    def get(self, request):
-        return Response({"system_prompt": SYSTEM_PROMPT})
-
-
-class PromptLabSamplesView(APIView):
-    """Return feedback samples to try prompts against: the bundled pilot samples
-    (?source=collected) or recent responses collected in this study (?source=study)."""
-
-    permission_classes = [IsResearcher]
-
-    def get(self, request):
-        source = request.query_params.get("source", "collected")
-        try:
-            limit = min(int(request.query_params.get("limit", 30)), 100)
-        except ValueError:
-            limit = 30
-        if source == "study":
-            samples = list(
-                FeedbackResponse.objects.exclude(final_text="")
-                .order_by("-created_at")
-                .values_list("final_text", flat=True)[:limit]
-            )
-        else:
-            samples = _load_collected_samples()[:limit]
-        return Response({"source": source, "samples": samples})
-
-
-class PromptLabRunView(APIView):
-    """Run a system-prompt variant against a set of sample feedback texts and
-    return each model response, so the researcher can compare prompts."""
-
-    permission_classes = [IsResearcher]
-
-    def post(self, request):
-        system_prompt = (request.data.get("system_prompt") or "").strip()
-        samples = request.data.get("samples") or []
-        if not system_prompt:
-            return Response(
-                {"detail": "system_prompt is required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        if not isinstance(samples, list) or not samples:
-            return Response(
-                {"detail": "Provide a non-empty list of sample feedback texts."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        samples = [str(s).strip() for s in samples if str(s).strip()][
-            :_MAX_SAMPLES_PER_RUN
-        ]
-        provider = active_provider()
-        model = active_model()
-        results = []
-        for sample in samples:
-            try:
-                response_text = run_model(system_prompt, sample, max_tokens=1024)
-                results.append({"sample": sample, "response": response_text, "ok": True})
-            except Exception as exc:  # noqa: BLE001 - surface the error per-row
-                results.append(
-                    {"sample": sample, "response": "", "ok": False, "error": str(exc)[:200]}
-                )
-        return Response(
-            {
-                "count": len(results),
-                "provider": provider,
-                "model": model,
-                "results": results,
-            }
-        )
-
-
-class PromptLabStatusView(APIView):
-    """Report which LLM provider/model is active and whether a live request
-    succeeds — so the researcher can see (and explain) what actually answered."""
-
-    permission_classes = [IsResearcher]
-
-    def get(self, request):
-        return Response(live_check())

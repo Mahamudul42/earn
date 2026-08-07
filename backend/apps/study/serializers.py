@@ -11,9 +11,16 @@ from .models import (
 
 
 class NewsletterSerializer(serializers.ModelSerializer):
+    # Rendered from today's date rather than stored, so the stimulus never
+    # reads as stale. See content.current_edition_label().
+    edition_label = serializers.SerializerMethodField()
+
     class Meta:
         model = Newsletter
-        fields = ["slug", "title", "edition_label", "theme", "intro", "sections"]
+        fields = ["slug", "title", "edition_label", "sections"]
+
+    def get_edition_label(self, obj):
+        return content.current_edition_label()
 
 
 class SessionSerializer(serializers.ModelSerializer):
@@ -43,7 +50,9 @@ class SessionSerializer(serializers.ModelSerializer):
 
 class StartSessionSerializer(serializers.Serializer):
     recruitment_source = serializers.ChoiceField(
-        choices=[c[0] for c in Participant._meta.get_field("recruitment_source").choices],
+        choices=[
+            c[0] for c in Participant._meta.get_field("recruitment_source").choices
+        ],
         required=False,
         default="direct",
     )
@@ -68,7 +77,6 @@ class AssistantTurnSerializer(serializers.Serializer):
 
     action = serializers.CharField()
     message = serializers.CharField(allow_blank=True)
-    used_llm = serializers.BooleanField()
     assistant_turns = serializers.IntegerField(required=False, default=0)
 
 
@@ -108,7 +116,6 @@ class RatingSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "rater_username",
-            "is_llm",
             "target_specificity",
             "direction_operation",
             "collection_allocation",
@@ -145,6 +152,7 @@ class FeedbackDetailSerializer(serializers.ModelSerializer):
     recruitment_source = serializers.CharField(
         source="participant.recruitment_source", read_only=True
     )
+    study_phase = serializers.CharField(source="participant.study_phase", read_only=True)
     ratings = RatingSerializer(many=True, read_only=True)
     mean_total = serializers.SerializerMethodField()
 
@@ -156,11 +164,11 @@ class FeedbackDetailSerializer(serializers.ModelSerializer):
             "condition",
             "newsletter",
             "recruitment_source",
+            "study_phase",
             "initial_text",
             "final_text",
             "assistant_action",
             "assistant_message",
-            "assistant_used_llm",
             "chat_log",
             "final_draft",
             "revision_count",
@@ -171,5 +179,13 @@ class FeedbackDetailSerializer(serializers.ModelSerializer):
         ]
 
     def get_mean_total(self, obj):
-        human = [r.total for r in obj.ratings.all() if not r.is_llm]
-        return round(sum(human) / len(human), 2) if human else None
+        totals = [r.total for r in obj.ratings.all()]
+        return round(sum(totals) / len(totals), 2) if totals else None
+
+
+class BlindFeedbackSerializer(serializers.ModelSerializer):
+    """Only the final response needed for condition-blind human scoring."""
+
+    class Meta:
+        model = FeedbackResponse
+        fields = ["id", "final_text"]

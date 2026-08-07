@@ -1,22 +1,27 @@
 """Focused tests for the EARN study: assignment balance + condition toggle, the
-clarify/advise assistant, the participant flow, and researcher permissions/rating."""
+clarify/advise assistant, the participant flow, and researcher permissions/rating.
+
+The Condition-3 assistant is local-model-only with no rule-based stand-in, so
+tests that exercise a conversation stub the model call. Tests that exercise an
+outage leave it unstubbed and assert the flow degrades cleanly.
+"""
+
 import json
 
 import pytest
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 
+from apps.study import assistant as assistant_module
 from apps.study.assistant import (
-    ACTION_SUGGESTION,
-    RATING_DIMENSIONS,
+    ACTION_OK,
+    ACTION_QUESTION,
+    AssistantUnavailable,
     _VALID_ACTIONS,
-    _parse_rating_json,
-    active_provider,
-    get_assistant_response,
-    llm_rate_feedback,
-    provider_status,
+    _parse_assistant_json,
+    compose_final_feedback,
+    get_assistant_reply,
     render_newsletter_context,
-    run_model,
 )
 from apps.study.models import (
     ActionabilityRating,
@@ -25,6 +30,7 @@ from apps.study.models import (
     Newsletter,
     Participant,
     SurveyResponse,
+    StudyPhase,
 )
 
 User = get_user_model()
@@ -32,9 +38,36 @@ User = get_user_model()
 
 @pytest.fixture(autouse=True)
 def _no_live_llm(settings):
-    """Keep ordinary tests offline so they use the deterministic fallback."""
+    """Keep tests off the network. Unless a test stubs the model, any assistant
+    call raises AssistantUnavailable."""
     settings.LOCAL_LLM_BASE_URL = ""
     settings.LOCAL_LLM_API_KEY = ""
+
+
+@pytest.fixture
+def fake_llm(monkeypatch):
+    """Stub the local model so conversation tests are deterministic.
+
+    Returns a list recording each call's messages, so tests can assert what was
+    actually sent to the model.
+    """
+    calls = []
+
+    def _fake_chat(messages, temperature, max_tokens):
+        calls.append(messages)
+        system = messages[0]["content"]
+        # The consolidation step overrides the JSON output format.
+        if "CONSOLIDATION STEP" in system:
+            return "I want fewer sports stories and more local science coverage."
+        turns = sum(1 for m in messages if m["role"] == "assistant")
+        if turns == 0:
+            return json.dumps(
+                {"action": "question", "message": "Which topics would you change?"}
+            )
+        return json.dumps({"action": "ok", "message": "Thanks — that is clear."})
+
+    monkeypatch.setattr(assistant_module, "_chat_local", _fake_chat)
+    return calls
 
 
 @pytest.fixture
@@ -45,7 +78,6 @@ def newsletters(db):
             Newsletter.objects.create(
                 slug=slug,
                 title=slug.upper(),
-                edition_label="Test",
                 sections=[{"name": "S", "articles": []}],
             )
         )
@@ -57,88 +89,57 @@ def client():
     return APIClient()
 
 
-# --- Assistant (concrete suggestions — never rewrites) ---------------------
-def test_assistant_suggests_when_vague():
-    result = get_assistant_response("make it better")
-    assert result.action == ACTION_SUGGESTION
-    assert result.used_llm is False
+def _staff_token(client, username="r", password="x"):
+    User.objects.create_user(username, password=password, is_staff=True)
+    return client.post(
+        "/api/auth/token/",
+        {"username": username, "password": password},
+        format="json",
+    ).data["access"]
 
 
-def test_assistant_only_suggests_or_acknowledges():
-    """The assistant must only suggest/ask/acknowledge — never 'rewrite'."""
-    for text in [
-        "make it better",
-        "I do not like sports. more science news please",
-        "I want fewer long political articles and more short local updates",
-        "the newsletter is boring",
-    ]:
-        result = get_assistant_response(text)
-        assert result.action in _VALID_ACTIONS
-        assert result.action != "rewrite"
-        # No local endpoint configured in tests -> deterministic fallback.
-        assert result.used_llm is False
+# --- Assistant --------------------------------------------------------------
+def test_assistant_reply_parses_model_json(fake_llm):
+    result = get_assistant_reply([{"role": "user", "content": "make it better"}])
+    assert result.action == ACTION_QUESTION
+    assert result.message == "Which topics would you change?"
 
 
-# --- Local-only LLM transport ----------------------------------------------
-def test_local_llm_is_the_only_active_provider(settings, monkeypatch):
-    """Even legacy external settings cannot redirect the active runtime."""
-    settings.LLM_PROVIDER = "external"
-    settings.EXTERNAL_API_KEY = "must-not-be-used"
-    settings.LOCAL_LLM_BASE_URL = "http://model-host:8123/v1"
-    settings.LOCAL_LLM_MODEL = "openai/gpt-oss-120b"
-    settings.LOCAL_LLM_API_KEY = ""
-    settings.LOCAL_LLM_TIMEOUT_SECONDS = 12
-    captured = {}
-
-    class Response:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *_args):
-            return False
-
-        def read(self):
-            return json.dumps(
-                {
-                    "choices": [
-                        {"message": {"content": "local response"}}
-                    ]
-                }
-            ).encode()
-
-    def fake_urlopen(request, timeout):
-        captured["url"] = request.full_url
-        captured["authorization"] = request.get_header("Authorization")
-        captured["payload"] = json.loads(request.data)
-        captured["timeout"] = timeout
-        return Response()
-
-    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
-
-    assert active_provider() == "local"
-    assert provider_status()["configured"] == {"local": True}
-    assert run_model("System", "User", max_tokens=150) == "local response"
-    assert captured == {
-        "url": "http://model-host:8123/v1/chat/completions",
-        "authorization": None,
-        "payload": {
-            "model": "openai/gpt-oss-120b",
-            "messages": [
-                {"role": "system", "content": "System"},
-                {"role": "user", "content": "User"},
-            ],
-            "temperature": 0.4,
-            "max_tokens": 150,
-        },
-        "timeout": 12,
-    }
+def test_assistant_json_parser_rejects_malformed_replies():
+    assert _parse_assistant_json('{"action": "question", "message": "ok?"}') is not None
+    # Unknown action, empty message, and non-JSON must all be rejected rather
+    # than passed through as a turn.
+    assert _parse_assistant_json('{"action": "rewrite", "message": "hi"}') is None
+    assert _parse_assistant_json('{"action": "question", "message": ""}') is None
+    assert _parse_assistant_json("not json at all") is None
 
 
-# --- Newsletter grounding context ------------------------------------------
+def test_assistant_raises_when_model_unreachable():
+    """No rule-based stand-in: an outage must surface, never be papered over."""
+    with pytest.raises(AssistantUnavailable):
+        get_assistant_reply([{"role": "user", "content": "make it better"}])
+    with pytest.raises(AssistantUnavailable):
+        compose_final_feedback([{"role": "user", "content": "make it better"}])
+
+
+def test_assistant_replays_prior_turns_in_json_format(fake_llm):
+    history = [
+        {"role": "user", "content": "make it better"},
+        {"role": "assistant", "content": "Which topics?", "action": "question"},
+        {"role": "user", "content": "less sports"},
+    ]
+    result = get_assistant_reply(history)
+    assert result.action == ACTION_OK
+    sent = fake_llm[-1]
+    assistant_turn = next(m for m in sent if m["role"] == "assistant")
+    # Prior assistant turns are replayed as the model's own JSON so the output
+    # format stays stable across rounds.
+    assert json.loads(assistant_turn["content"])["action"] == "question"
+
+
 def test_newsletter_context_is_grounding_only():
     class NL:
         title = "Your POPROX Briefing"
-        edition_label = "Saturday Edition"
         sections = [
             {
                 "name": "Your Top Stories",
@@ -169,57 +170,48 @@ def test_newsletter_context_is_grounding_only():
     assert render_newsletter_context(Empty()) == ""
 
 
-# --- LLM actionability rater -----------------------------------------------
-def test_rating_json_parser_clamps_and_validates():
-    ok = _parse_rating_json(
-        'noise {"target_specificity": 2, "direction_operation": 5, '
-        '"collection_allocation": 1, "context_persistence": 0, '
-        '"system_feasibility": 1, "target_level": "Section", "notes": "ok"} tail'
+# --- Participant-facing copy ------------------------------------------------
+def test_edition_label_is_always_today(client, newsletters):
+    """The masthead date is rendered fresh so the stimulus never reads as stale."""
+    from django.utils import timezone
+
+    from apps.study.content import current_edition_label
+
+    today = timezone.localdate()
+    label = current_edition_label()
+    assert f"{today.year}" in label and f"{today:%B}" in label
+    assert str(today.day) in label
+
+    start = client.post(
+        "/api/session/start/", {"recruitment_source": "direct"}, format="json"
     )
-    assert ok["direction_operation"] == 2  # out-of-range value clamped to 0..2
-    assert ok["target_level"] == "section"  # normalised/lowercased
-    assert set(RATING_DIMENSIONS) <= ok.keys()
-    # A missing dimension or non-JSON reply is treated as unparseable.
-    assert _parse_rating_json('{"target_specificity": 1}') is None
-    assert _parse_rating_json("not json at all") is None
+    assert start.data["newsletter"]["edition_label"] == label
 
 
-def test_llm_rater_offline_returns_none():
-    # The autouse fixture disables the local endpoint -> no rating is produced.
-    assert llm_rate_feedback("more local science, fewer sports") is None
+def test_condition2_example_only_asks_for_feasible_operations():
+    """Condition 2's example must not model requests POPROX cannot satisfy.
 
+    The system can select, filter, balance, de-duplicate and reorder articles,
+    but it cannot rewrite article text, change preview length, or use a
+    publisher other than AP. An example demonstrating those would teach
+    Condition-2 participants to make infeasible requests and would depress the
+    system_feasibility rubric dimension relative to Condition 1.
+    """
+    from apps.study.content import CONDITION2_EXAMPLE, CONDITION2_GUIDANCE
 
-def test_rate_with_llm_command_skips_gracefully_offline(newsletters):
-    from django.core.management import call_command
-
-    p = Participant.objects.create(
-        condition=Condition.JUST_ASK, newsletter=newsletters[0]
-    )
-    FeedbackResponse.objects.create(participant=p, final_text="more science")
-    call_command("rate_with_llm")  # offline: no provider -> creates nothing
-    assert ActionabilityRating.objects.filter(is_llm=True).count() == 0
-
-
-def test_export_includes_final_draft_and_chat_log(client, newsletters):
-    p = Participant.objects.create(
-        condition=Condition.ASSISTANT, newsletter=newsletters[0]
-    )
-    FeedbackResponse.objects.create(
-        participant=p,
-        final_text="more local science",
-        final_draft="I want more local science.",
-        chat_log=[{"role": "user", "content": "science please"}],
-    )
-    User.objects.create_user("rx", password="x", is_staff=True)
-    token = client.post(
-        "/api/auth/token/", {"username": "rx", "password": "x"}, format="json"
-    ).data["access"]
-    client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
-    resp = client.get("/api/research/export.csv")
-    assert resp.status_code == 200
-    body = resp.content.decode()
-    assert "final_draft" in body and "chat_log_json" in body
-    assert "I want more local science." in body
+    infeasible = [
+        "shorter article",
+        "longer article",
+        "length of the article",
+        "background on why",
+        "more background",
+        "kinds of sources",
+        "rewrite",
+        "summarize",
+    ]
+    for phrase in infeasible:
+        assert phrase not in CONDITION2_EXAMPLE.lower(), phrase
+        assert phrase not in CONDITION2_GUIDANCE.lower(), phrase
 
 
 # --- Assignment + condition toggle -----------------------------------------
@@ -230,7 +222,9 @@ def test_assignment_is_balanced_across_cells(newsletters):
     for _ in range(24):  # 2 newsletters x 3 conditions = 6 cells -> 4 each
         condition, newsletter = choose_cell()
         Participant.objects.create(condition=condition, newsletter=newsletter)
-        counts[(condition, newsletter.id)] = counts.get((condition, newsletter.id), 0) + 1
+        counts[(condition, newsletter.id)] = (
+            counts.get((condition, newsletter.id), 0) + 1
+        )
     assert set(counts.values()) == {4}, counts
 
 
@@ -259,7 +253,9 @@ def test_forced_condition_overrides_toggle(newsletters, settings):
 
 # --- Participant flow -------------------------------------------------------
 def test_full_participant_flow(client, newsletters):
-    start = client.post("/api/session/start/", {"recruitment_source": "direct"}, format="json")
+    start = client.post(
+        "/api/session/start/", {"recruitment_source": "direct"}, format="json"
+    )
     assert start.status_code == 201
     pid = start.data["public_id"]
 
@@ -274,7 +270,10 @@ def test_full_participant_flow(client, newsletters):
 
     client.post(
         f"/api/session/{pid}/feedback/final/",
-        {"final_text": "more local education news, less celebrity coverage", "time_on_task_seconds": 60},
+        {
+            "final_text": "more local education news, less celebrity coverage",
+            "time_on_task_seconds": 60,
+        },
         format="json",
     )
 
@@ -285,9 +284,10 @@ def test_full_participant_flow(client, newsletters):
     assert p.status == Participant.Status.COMPLETED
     assert FeedbackResponse.objects.filter(participant=p).exists()
     assert SurveyResponse.objects.filter(participant=p).exists()
+    assert p.study_phase == StudyPhase.PILOT
 
 
-def test_condition3_chat_flow(client, newsletters):
+def test_condition3_chat_flow(client, newsletters, fake_llm):
     """Condition 3 runs a multi-turn conversation: initial feedback -> assistant
     round(s) -> confirm-and-submit. The full conversation is stored in chat_log."""
     start = client.post(
@@ -317,16 +317,20 @@ def test_condition3_chat_flow(client, newsletters):
     assert turn.data["assistant_turns"] == 2
 
     p = Participant.objects.get(public_id=pid)
+    assert p.study_phase == StudyPhase.PREVIEW
     fb = FeedbackResponse.objects.get(participant=p)
-    assert len(fb.chat_log) == 4  # user, assistant, user, assistant
-    assert [m["role"] for m in fb.chat_log] == ["user", "assistant", "user", "assistant"]
+    assert [m["role"] for m in fb.chat_log] == [
+        "user",
+        "assistant",
+        "user",
+        "assistant",
+    ]
 
-    # Consolidated draft for the confirm panel (offline -> joins the reader's
-    # own messages verbatim) and is stored for the faithfulness analysis.
+    # Consolidated draft for the confirm panel, stored for the faithfulness
+    # analysis alongside whatever the participant finally submits.
     draft = client.post(f"/api/session/{pid}/feedback/final-draft/")
     assert draft.status_code == 200
-    assert "make it better" in draft.data["draft"]
-    assert "fewer sports stories" in draft.data["draft"]
+    assert "local science" in draft.data["draft"]
     fb.refresh_from_db()
     assert fb.final_draft == draft.data["draft"]
 
@@ -342,6 +346,38 @@ def test_condition3_chat_flow(client, newsletters):
     assert final.status_code == 200
     fb.refresh_from_db()
     assert fb.final_text == "fewer sports stories, more local science coverage"
+
+
+def test_condition3_reports_503_when_assistant_unavailable(client, newsletters):
+    """An outage must not block the participant or invent an assistant turn."""
+    start = client.post(
+        "/api/session/start/",
+        {"recruitment_source": "direct", "condition": 3},
+        format="json",
+    )
+    pid = start.data["public_id"]
+
+    initial = client.post(
+        f"/api/session/{pid}/feedback/initial/",
+        {"initial_text": "make it better"},
+        format="json",
+    )
+    assert initial.status_code == 503
+    assert "unavailable" in initial.data["detail"].lower()
+
+    # The participant's own words are kept, and no assistant turn was recorded.
+    fb = FeedbackResponse.objects.get(participant__public_id=pid)
+    assert fb.initial_text == "make it better"
+    assert fb.chat_log == []
+    assert fb.assistant_message == ""
+
+    # They can still submit what they wrote, so the session is never lost.
+    final = client.post(
+        f"/api/session/{pid}/feedback/final/",
+        {"final_text": "make it better", "time_on_task_seconds": 30},
+        format="json",
+    )
+    assert final.status_code == 200
 
 
 def test_chat_endpoint_rejected_for_other_conditions(client, newsletters):
@@ -373,49 +409,125 @@ def test_research_endpoints_require_staff(client, newsletters):
 
 
 def test_researcher_can_rate(client, newsletters):
-    # Create a completed feedback.
-    nl = newsletters[0]
-    p = Participant.objects.create(condition=Condition.JUST_ASK, newsletter=nl)
+    p = Participant.objects.create(
+        condition=Condition.JUST_ASK, newsletter=newsletters[0]
+    )
     fb = FeedbackResponse.objects.create(participant=p, final_text="more science")
 
-    User.objects.create_user("r", password="x", is_staff=True)
-    token = client.post(
-        "/api/auth/token/", {"username": "r", "password": "x"}, format="json"
-    ).data["access"]
-    client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {_staff_token(client)}")
     resp = client.post(
         f"/api/research/responses/{fb.id}/ratings/",
         {
-            "target_specificity": 1, "direction_operation": 2,
-            "collection_allocation": 0, "context_persistence": 0,
-            "system_feasibility": 2, "target_level": "collection",
+            "target_specificity": 1,
+            "direction_operation": 2,
+            "collection_allocation": 0,
+            "context_persistence": 0,
+            "system_feasibility": 2,
+            "target_level": "collection",
         },
         format="json",
     )
     assert resp.status_code == 201
     assert resp.data["total"] == 5
+    assert ActionabilityRating.objects.count() == 1
 
 
-def test_prompt_lab_default_and_samples(client, newsletters):
-    User.objects.create_user("r2", password="x", is_staff=True)
-    token = client.post(
-        "/api/auth/token/", {"username": "r2", "password": "x"}, format="json"
+def test_manager_creates_distinct_blinded_human_raters(client, newsletters):
+    manager = User.objects.create_user("manager", password="x", is_staff=True)
+    assert manager.is_staff
+    manager_token = client.post(
+        "/api/auth/token/", {"username": "manager", "password": "x"}, format="json"
     ).data["access"]
-    client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {manager_token}")
 
-    default = client.get("/api/research/prompt-lab/default/")
-    assert default.status_code == 200
-    assert len(default.data["system_prompt"]) > 50
+    created = client.post(
+        "/api/auth/raters/",
+        {
+            "username": "rater_a",
+            "email": "rater-a@example.com",
+            "password": "Secure-Rater-8472!",
+        },
+        format="json",
+    )
+    assert created.status_code == 201
+    assert created.data["role"] == "rater"
+    assert created.data["rating_count"] == 0
 
-    samples = client.get("/api/research/prompt-lab/samples/?source=collected&limit=5")
-    assert samples.status_code == 200
-    assert isinstance(samples.data["samples"], list)
+    participant = Participant.objects.create(
+        condition=Condition.ASSISTANT,
+        newsletter=newsletters[0],
+        status=Participant.Status.COMPLETED,
+        study_phase=StudyPhase.MAIN,
+    )
+    feedback = FeedbackResponse.objects.create(
+        participant=participant,
+        initial_text="make it better",
+        final_text="show fewer sports stories and more local science",
+        chat_log=[{"role": "assistant", "content": "Which topics?"}],
+    )
 
-
-def test_prompt_lab_requires_staff(client, newsletters):
-    User.objects.create_user("plain2", password="x")
-    token = client.post(
-        "/api/auth/token/", {"username": "plain2", "password": "x"}, format="json"
+    client.credentials()
+    rater_token = client.post(
+        "/api/auth/token/",
+        {"username": "rater_a", "password": "Secure-Rater-8472!"},
+        format="json",
     ).data["access"]
-    client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
-    assert client.get("/api/research/prompt-lab/default/").status_code == 403
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {rater_token}")
+    me = client.get("/api/auth/me/")
+    assert me.status_code == 200 and me.data["role"] == "rater"
+    # Raters are confined to the blind queue.
+    assert client.get("/api/research/overview/").status_code == 403
+    assert client.get(f"/api/research/responses/{feedback.id}/").status_code == 403
+    assert client.get("/api/research/export.csv").status_code == 403
+
+    queue = client.get("/api/research/responses/?unrated=1")
+    assert queue.status_code == 200
+    row = queue.data["results"][0]
+    # Blinding: condition, chat log and other raters' scores are never exposed.
+    assert set(row) == {"id", "final_text"}
+    assert row["id"] == feedback.id
+
+    payload = {
+        "target_specificity": 2,
+        "direction_operation": 2,
+        "collection_allocation": 1,
+        "context_persistence": 0,
+        "system_feasibility": 2,
+        "target_level": "collection",
+    }
+    first = client.post(
+        f"/api/research/responses/{feedback.id}/ratings/", payload, format="json"
+    )
+    assert first.status_code == 201
+    duplicate = client.post(
+        f"/api/research/responses/{feedback.id}/ratings/", payload, format="json"
+    )
+    assert duplicate.status_code == 409
+
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {manager_token}")
+    raters = client.get("/api/auth/raters/")
+    assert raters.status_code == 200
+    assert raters.data[0]["username"] == "rater_a"
+    assert raters.data[0]["rating_count"] == 1
+
+
+# --- Export -----------------------------------------------------------------
+def test_export_includes_final_draft_and_chat_log(client, newsletters):
+    p = Participant.objects.create(
+        condition=Condition.ASSISTANT, newsletter=newsletters[0]
+    )
+    FeedbackResponse.objects.create(
+        participant=p,
+        final_text="more local science",
+        final_draft="I want more local science.",
+        chat_log=[{"role": "user", "content": "science please"}],
+    )
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {_staff_token(client, 'rx')}")
+    resp = client.get("/api/research/export.csv")
+    assert resp.status_code == 200
+    body = resp.content.decode()
+    assert "final_draft" in body and "chat_log_json" in body
+    assert "I want more local science." in body
+    # Regression guard: the LLM-rating subsystem is gone, so no machine score
+    # can reappear in the export and be mistaken for a human rating.
+    assert "llm" not in body.lower()

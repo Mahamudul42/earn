@@ -18,8 +18,6 @@ export interface Newsletter {
   slug: string;
   title: string;
   edition_label: string;
-  theme: string;
-  intro: string;
   sections: NewsletterSection[];
 }
 
@@ -47,7 +45,6 @@ export interface Session {
 export interface AssistantTurn {
   action: "none" | "suggestion" | "question" | "ok";
   message: string;
-  used_llm: boolean;
   /** How many assistant rounds have run in this conversation (Condition 3). */
   assistant_turns?: number;
 }
@@ -70,7 +67,6 @@ export interface SurveyAnswers {
 export interface Rating {
   id: number;
   rater_username: string;
-  is_llm: boolean;
   target_specificity: number;
   direction_operation: number;
   collection_allocation: number;
@@ -88,11 +84,11 @@ export interface FeedbackDetail {
   condition: number;
   newsletter: string;
   recruitment_source: string;
+  study_phase: "main" | "pilot" | "preview";
   initial_text: string;
   final_text: string;
   assistant_action: string;
   assistant_message: string;
-  assistant_used_llm: boolean;
   chat_log: ChatMessage[];
   final_draft: string;
   revision_count: number;
@@ -112,4 +108,22 @@ export interface Overview {
     { label: string; n: number; completed: number }
   >;
   cells: { condition: number; newsletter__slug: string; n: number }[];
+}
+
+export interface UserInfo {
+  id: number;
+  username: string;
+  email: string;
+  is_researcher: boolean;
+  role: "manager" | "rater";
+  can_manage_raters: boolean;
+  is_active: boolean;
+  rating_count: number;
+  last_login: string | null;
+  date_joined: string;
+}
+
+export interface BlindFeedback {
+  id: number;
+  final_text: string;
 }

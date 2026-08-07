@@ -5,13 +5,12 @@ import { CheckCircle2 } from "lucide-react";
 import { ResearcherShell } from "@/components/shell/ResearcherShell";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
 import { Textarea } from "@/components/ui/Textarea";
 import { Spinner } from "@/components/ui/Spinner";
 import { cn } from "@/lib/cn";
 import { api } from "@/lib/api";
 import { getToken } from "@/lib/auth";
-import type { FeedbackDetail } from "@/lib/types";
+import type { BlindFeedback } from "@/lib/types";
 
 const DIMENSIONS = [
   {
@@ -67,7 +66,7 @@ export default function RatePage() {
 }
 
 function RateBody() {
-  const [queue, setQueue] = useState<FeedbackDetail[]>([]);
+  const [queue, setQueue] = useState<BlindFeedback[]>([]);
   const [loading, setLoading] = useState(true);
   const [scores, setScores] = useState(emptyScores());
   const [targetLevel, setTargetLevel] = useState("");
@@ -79,7 +78,7 @@ function RateBody() {
     if (!token) return;
     setLoading(true);
     try {
-      const res = await api.responses(token, { unrated: true });
+      const res = await api.ratingQueue(token);
       setQueue(res.results);
     } finally {
       setLoading(false);
@@ -92,7 +91,7 @@ function RateBody() {
     let cancelled = false;
 
     api
-      .responses(token, { unrated: true })
+      .ratingQueue(token)
       .then((response) => {
         if (!cancelled) setQueue(response.results);
       })
@@ -162,14 +161,11 @@ function RateBody() {
       {/* Response under review */}
       <Card>
         <CardBody className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Badge>Condition {current.condition}</Badge>
-            <Badge className="bg-slate-100 text-slate-600">
-              {current.newsletter}
-            </Badge>
-            <span className="ml-auto text-xs text-slate-400">
-              {queue.length} in queue
-            </span>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-slate-500">
+              Condition and automated scores are hidden to keep this assessment blind.
+            </p>
+            <span className="shrink-0 text-xs text-slate-400">{queue.length} in queue</span>
           </div>
 
           <div>
@@ -181,60 +177,6 @@ function RateBody() {
             </p>
           </div>
 
-          {current.condition === 3 && (
-            <div className="space-y-3 text-sm">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Initial response
-                </p>
-                <p className="mt-1 text-slate-600">{current.initial_text}</p>
-              </div>
-
-              {current.chat_log?.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Assistant conversation
-                  </p>
-                  <div className="mt-1 max-h-64 space-y-2 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-3">
-                    {current.chat_log.map((m, i) => (
-                      <div
-                        key={i}
-                        className={m.role === "user" ? "text-right" : "text-left"}
-                      >
-                        <span
-                          className={cn(
-                            "inline-block max-w-[85%] whitespace-pre-wrap rounded-lg px-3 py-1.5 text-left text-xs",
-                            m.role === "user"
-                              ? "bg-brand-600 text-white"
-                              : "border border-slate-200 bg-white text-slate-700",
-                          )}
-                        >
-                          {m.role === "assistant" && m.action && (
-                            <span className="mr-1 font-semibold text-brand-600">
-                              [{m.action}]
-                            </span>
-                          )}
-                          {m.content}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {current.final_draft &&
-                current.final_draft.trim() !== current.final_text.trim() && (
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                      Assistant-consolidated draft (before the participant&apos;s edits)
-                    </p>
-                    <p className="mt-1 rounded-lg border border-dashed border-slate-300 bg-white p-3 text-slate-500">
-                      {current.final_draft}
-                    </p>
-                  </div>
-                )}
-            </div>
-          )}
         </CardBody>
       </Card>
 
@@ -308,7 +250,7 @@ function RateBody() {
             <Button variant="ghost" onClick={() => setQueue((q) => q.slice(1))}>
               Skip
             </Button>
-            <Button onClick={submit} disabled={!allScored || busy}>
+            <Button onClick={submit} disabled={!allScored || !targetLevel || busy}>
               {busy && <Spinner className="h-4 w-4 text-white" />}
               Save rating
             </Button>

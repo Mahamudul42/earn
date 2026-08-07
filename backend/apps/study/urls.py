@@ -38,7 +38,11 @@ urlpatterns = [
     ),
     # Researcher dashboard
     path("research/overview/", views.OverviewView.as_view(), name="research-overview"),
-    path("research/responses/", views.ResponseListView.as_view(), name="research-responses"),
+    path(
+        "research/responses/",
+        views.ResponseListView.as_view(),
+        name="research-responses",
+    ),
     path(
         "research/responses/<int:pk>/",
         views.ResponseDetailView.as_view(),
@@ -50,25 +54,4 @@ urlpatterns = [
         name="research-rating-create",
     ),
     path("research/export.csv", views.ExportView.as_view(), name="research-export"),
-    # Prompt playground
-    path(
-        "research/prompt-lab/default/",
-        views.PromptLabDefaultView.as_view(),
-        name="prompt-lab-default",
-    ),
-    path(
-        "research/prompt-lab/samples/",
-        views.PromptLabSamplesView.as_view(),
-        name="prompt-lab-samples",
-    ),
-    path(
-        "research/prompt-lab/run/",
-        views.PromptLabRunView.as_view(),
-        name="prompt-lab-run",
-    ),
-    path(
-        "research/prompt-lab/status/",
-        views.PromptLabStatusView.as_view(),
-        name="prompt-lab-status",
-    ),
 ]

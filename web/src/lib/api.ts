@@ -1,10 +1,17 @@
 import type {
   AssistantTurn,
+  BlindFeedback,
   FeedbackDetail,
   Overview,
   Session,
   SurveyAnswers,
+  UserInfo,
 } from "./types";
+import {
+  clearToken,
+  getRefreshToken,
+  saveToken,
+} from "./auth";
 
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ||
@@ -24,7 +31,37 @@ interface RequestOptions {
   token?: string | null;
 }
 
-async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+let refreshRequest: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  const refresh = getRefreshToken();
+  if (!refresh) return null;
+  if (!refreshRequest) {
+    refreshRequest = fetch(`${API_BASE}/api/auth/token/refresh/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh }),
+      cache: "no-store",
+    })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        const data = (await response.json()) as { access: string };
+        saveToken(data.access);
+        return data.access;
+      })
+      .catch(() => null)
+      .finally(() => {
+        refreshRequest = null;
+      });
+  }
+  return refreshRequest;
+}
+
+async function request<T>(
+  path: string,
+  opts: RequestOptions = {},
+  retried = false,
+): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (opts.token) headers["Authorization"] = `Bearer ${opts.token}`;
   const res = await fetch(`${API_BASE}${path}`, {
@@ -33,6 +70,14 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
     body: opts.body ? JSON.stringify(opts.body) : undefined,
     cache: "no-store",
   });
+  if (res.status === 401 && opts.token && !retried) {
+    const access = await refreshAccessToken();
+    if (access) return request<T>(path, { ...opts, token: access }, true);
+    clearToken();
+    if (typeof window !== "undefined") {
+      window.location.assign("/researcher/login?expired=1");
+    }
+  }
   if (!res.ok) {
     let detail = res.statusText;
     try {
@@ -86,7 +131,7 @@ export const api = {
 
   // Condition 3: consolidate the conversation into one submission-ready draft.
   finalDraft: (publicId: string) =>
-    request<{ draft: string; used_llm: boolean }>(
+    request<{ draft: string }>(
       `/api/session/${publicId}/feedback/final-draft/`,
       { method: "POST" },
     ),
@@ -115,6 +160,33 @@ export const api = {
       body: { username, password },
     }),
 
+  me: (token: string) =>
+    request<UserInfo>("/api/auth/me/", { token }),
+
+  raters: (token: string) =>
+    request<UserInfo[]>("/api/auth/raters/", { token }),
+
+  createRater: (
+    token: string,
+    body: { username: string; email: string; password: string },
+  ) =>
+    request<UserInfo>("/api/auth/raters/", {
+      method: "POST",
+      token,
+      body,
+    }),
+
+  updateRater: (
+    token: string,
+    id: number,
+    body: { email?: string; is_active?: boolean; password?: string },
+  ) =>
+    request<UserInfo>(`/api/auth/raters/${id}/`, {
+      method: "PATCH",
+      token,
+      body,
+    }),
+
   overview: (token: string) =>
     request<Overview>("/api/research/overview/", { token }),
 
@@ -135,6 +207,14 @@ export const api = {
     }>(`/api/research/responses/${qs ? `?${qs}` : ""}`, { token });
   },
 
+  ratingQueue: (token: string, page = 1) =>
+    request<{
+      count: number;
+      next: string | null;
+      previous: string | null;
+      results: BlindFeedback[];
+    }>(`/api/research/responses/?unrated=1&page=${page}`, { token }),
+
   createRating: (
     token: string,
     feedbackId: number,
@@ -146,45 +226,10 @@ export const api = {
       body,
     }),
 
+  responseDetail: (token: string, feedbackId: number) =>
+    request<FeedbackDetail>(`/api/research/responses/${feedbackId}/`, { token }),
+
   exportUrl: () => `${API_BASE}/api/research/export.csv`,
-
-  // --- Prompt playground ---------------------------------------------------
-  promptLabDefault: (token: string) =>
-    request<{ system_prompt: string }>("/api/research/prompt-lab/default/", {
-      token,
-    }),
-
-  promptLabSamples: (
-    token: string,
-    source: "collected" | "study" = "collected",
-    limit = 30,
-  ) =>
-    request<{ source: string; samples: string[] }>(
-      `/api/research/prompt-lab/samples/?source=${source}&limit=${limit}`,
-      { token },
-    ),
-
-  promptLabRun: (token: string, system_prompt: string, samples: string[]) =>
-    request<{
-      count: number;
-      provider: string;
-      model: string;
-      results: { sample: string; response: string; ok: boolean; error?: string }[];
-    }>("/api/research/prompt-lab/run/", {
-      method: "POST",
-      token,
-      body: { system_prompt, samples },
-    }),
-
-  promptLabStatus: (token: string) =>
-    request<{
-      provider: string;
-      model: string;
-      ok: boolean;
-      error: string | null;
-      has_key: boolean;
-      configured: Record<string, boolean>;
-    }>("/api/research/prompt-lab/status/", { token }),
 };
 
 export { ApiError };

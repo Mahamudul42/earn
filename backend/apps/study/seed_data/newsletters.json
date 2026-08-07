@@ -2,9 +2,6 @@
   {
     "slug": "poprox-world",
     "title": "Your POPROX Briefing",
-    "edition_label": "Saturday Edition · June 21, 2026",
-    "theme": "Personalized general news (world emphasis)",
-    "intro": "Your personalized roundup for today.",
     "sections": [
       {
         "name": "Your Top Stories",
@@ -141,9 +138,6 @@
   {
     "slug": "poprox-us",
     "title": "Your POPROX Briefing",
-    "edition_label": "Saturday Edition · June 21, 2026",
-    "theme": "Personalized general news (U.S. & politics emphasis)",
-    "intro": "Your personalized roundup for today.",
     "sections": [
       {
         "name": "Your Top Stories",
@@ -280,9 +274,6 @@
   {
     "slug": "poprox-tech",
     "title": "Your POPROX Briefing",
-    "edition_label": "Saturday Edition · June 21, 2026",
-    "theme": "Personalized general news (technology & sports emphasis)",
-    "intro": "Your personalized roundup for today.",
     "sections": [
       {
         "name": "Your Top Stories",
