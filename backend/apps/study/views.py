@@ -52,9 +52,8 @@ DIMENSIONS = (
     "system_feasibility",
 )
 
-# Shown to the participant when the self-hosted model cannot be reached. There
-# is deliberately no canned assistant reply: the participant is told the
-# assistant is unavailable rather than being given fabricated guidance.
+# Shown when the local model cannot be reached. No canned reply is sent in its
+# place.
 ASSISTANT_UNAVAILABLE_DETAIL = (
     "The feedback assistant is temporarily unavailable. Please try again, or "
     "submit the feedback you have already written."
@@ -245,10 +244,9 @@ class AssistantChatView(APIView):
 
 class FinalDraftView(APIView):
     """Condition 3: consolidate the whole conversation into ONE submission-ready
-    feedback draft in the participant's own voice (first person, only stated
-    preferences). Shown prefilled in the confirm-and-submit panel; the
-    participant can edit it freely and must explicitly confirm — it is never
-    auto-submitted."""
+    feedback draft in the participant's own voice, using only what they said.
+    It is prefilled in the confirm-and-submit panel. The participant can edit it
+    and has to confirm before it is submitted."""
 
     permission_classes = [AllowAny]
 

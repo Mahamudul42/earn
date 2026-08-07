@@ -1,14 +1,7 @@
-"""Strip dead provenance keys from already-collected Condition-3 transcripts.
+"""Remove used_llm and provider keys from stored chat logs.
 
-Turns recorded before the deterministic fallback was removed carry ``used_llm``
-and ``provider`` keys. Only one code path produces a turn now, so these keys are
-constant and no longer meaningful — and leaving them in the CSV export invites
-questions that no code answers.
-
-This was verified safe before writing: every stored turn had ``used_llm=true``,
-i.e. no turn was ever produced by the removed fallback, so no measurement is
-lost. Only these two keys are removed; ``role``, ``content``, ``action`` and
-``ts`` (the actual transcript) are untouched.
+Both keys came from the old fallback path. Every stored turn has used_llm=true,
+so nothing is lost. role, content, action and ts are left alone.
 """
 
 from django.db import migrations
@@ -34,7 +27,7 @@ def strip_provenance_keys(apps, schema_editor):
 
 
 def noop_reverse(apps, schema_editor):
-    """The removed keys were constant, so there is nothing to restore."""
+    pass
 
 
 class Migration(migrations.Migration):

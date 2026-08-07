@@ -22,7 +22,7 @@ def choose_cell(
 
     Normally this is the least-filled cell across all conditions and
     newsletters (balanced assignment). For previews/demos, ``forced_condition``
-    and/or ``forced_newsletter_slug`` restrict the choice — e.g. open the study
+    and/or ``forced_newsletter_slug`` restrict the choice, e.g. open the study
     with ``?condition=3`` to always land on the Interactive Feedback Assistant.
     """
     newsletters = list(Newsletter.objects.filter(is_active=True))

@@ -4,15 +4,14 @@ Kept on the backend so the exact wording is versioned with the study and can be
 adjusted after the pilot without changing the frontend.
 
 Design (per advisor guidance):
-- The main feedback prompt is neutral, open-ended, inclusive, and NOT topic-centric.
-  Personalization is more than topics — it can be about tone, balance, locality,
-  people/organizations, story depth, source style, section mix, recency, article
-  length, diversity, the amount of background/context, or broader/narrower coverage.
-- Condition 1 shows the base explanatory prompt only.
-- Condition 2 adds concise, inclusive examples that span many dimensions without
-  pushing any particular topic or preference.
-- Condition 3 adds an LLM assistant that only asks clarifying questions or gives
-  short advice — it never rewrites the participant's words or invents preferences.
+- The main prompt is neutral and open-ended, not topic-centric. Personalization
+  covers more than topics: balance, locality, people and organizations, section
+  mix, recency, variety and repetition.
+- Condition 1 shows the base prompt only.
+- Condition 2 adds examples spanning several dimensions without pushing any
+  particular topic.
+- Condition 3 adds an assistant that asks clarifying questions or gives short
+  advice. It does not rewrite the participant's words.
 """
 from django.utils import timezone
 
@@ -20,12 +19,7 @@ from .models import Condition
 
 
 def current_edition_label() -> str:
-    """The masthead date shown on the newsletter.
-
-    Always today's date. The newsletter stimulus is fixed, but a hard-coded date
-    would make it read as stale to participants (and to anyone reviewing the
-    project later), so the date is rendered fresh on every request.
-    """
+    """Masthead date for the newsletter. Uses today so it never looks old."""
     today = timezone.localdate()
     return f"{today:%A} Edition · {today:%B} {today.day}, {today.year}"
 
@@ -56,7 +50,7 @@ CONSENT_TEXT = (
     "or older and that you agree to take part in this study."
 )
 
-# Condition 2 — base prompt + inclusive examples/extra support. The examples span
+# Condition 2: base prompt plus examples and extra support. The examples span
 # many personalization dimensions and are explicitly framed as optional idea-sparkers
 # so they do not push participants toward any particular topic or preference.
 CONDITION2_INSTRUCTION = (
@@ -64,13 +58,10 @@ CONDITION2_INSTRUCTION = (
     "Here are some aspects other readers sometimes think about. You don't have to use "
     "any of them."
 )
-# The aspects listed here are deliberately limited to things the newsletter can
-# actually act on: which articles get chosen, how much of each kind appears, and
-# where they sit. Aspects the system cannot do (rewriting or shortening article
-# text, adding background, using a publisher other than AP) are excluded on
-# purpose — prompting for them would push Condition-2 participants toward
-# infeasible requests and depress the system-feasibility rubric dimension
-# relative to Condition 1, confounding exactly the comparison being measured.
+# Only lists things the system can act on: which articles are chosen, how much
+# of each kind appears, and where they sit. Article length, added background and
+# other publishers are left out because POPROX cannot do them, and prompting for
+# them would lower the feasibility scores in this condition.
 CONDITION2_GUIDANCE = (
     "For example: the topics or stories covered; how local or national it is; "
     "particular people or organizations; the balance between different kinds of "
@@ -85,9 +76,9 @@ CONDITION2_EXAMPLE = (
     "rather just see one of them.”"
 )
 
-CONDITION1_GUIDANCE = ""  # Base prompt only — no examples or extra support.
+CONDITION1_GUIDANCE = ""  # Base prompt only, no examples or extra support.
 
-# Condition 3 — base prompt + interactive LLM guidance. The assistant chats
+# Condition 3: base prompt plus the interactive assistant. It chats
 # briefly with the participant (clarifying questions / short tips) until the
 # feedback is actionable; it never rewrites the participant's words, and the
 # participant confirms and submits the final version themselves.

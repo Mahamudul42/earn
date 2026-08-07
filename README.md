@@ -1,4 +1,4 @@
-# EARN — Eliciting Actionable Recommendation Feedback
+# EARN: Eliciting Actionable Recommendation Feedback
 
 A full-stack web platform for running the **EARN** between-subjects online
 experiment: participants read a realistic personalized news newsletter and write
@@ -13,28 +13,26 @@ five-dimension actionability rubric and export the data for analysis.
 
 ## What it does
 
-**Participant flow** (no account needed — a private link per participant):
+**Participant flow** (no account needed, just a private link per participant):
 
-1. **Consent** — short statement; reminder not to include sensitive info.
-2. **Read** — one fixed-format newsletter (5 sections × 3 articles).
-3. **Feedback** — condition-specific (see below).
-4. **Survey** — four post-task Likert items about effort and feedback quality.
-5. **Done** — completion code (usable as a Prolific completion code).
+1. **Consent**: short statement; reminder not to include sensitive info.
+2. **Read**: one fixed-format newsletter (5 sections × 3 articles).
+3. **Feedback**: condition-specific (see below).
+4. **Survey**: four post-task Likert items about effort and feedback quality.
+5. **Done**: completion code (usable as a Prolific completion code).
 
 **Three elicitation conditions** (randomly + balance-assigned per participant):
 
 | # | Condition | Participant experience |
 |---|-----------|------------------------|
-| 1 | **Just Ask** | The prompt only — no guidance. |
+| 1 | **Just Ask** | The prompt only, no guidance. |
 | 2 | **Examples + Instructions** | Prompt + a neutral instruction, guidance questions, and one example. |
 | 3 | **Interactive Feedback Assistant** | Participant writes feedback and has a short clarification conversation with the assistant. The participant reviews and submits the final version; the assistant never rewrites their feedback for them. |
 
 The assistant uses the self-hosted **OpenAI-compatible local LLM** (default
-`openai/gpt-oss-120b`) and nothing else. There is no external provider and no
-rule-based stand-in: if the local endpoint is unavailable the API returns
-`503` and the participant is told plainly, then allowed to submit the feedback
-they have already written. The assistant never fabricates a turn, so every
-stored conversation turn is genuine model output.
+`openai/gpt-oss-120b`). There is no external provider and no rule-based
+fallback: if the local endpoint is unavailable the API returns `503`, the
+participant is shown a message and can submit the feedback they already wrote.
 
 **Researcher dashboard** (`/researcher`):
 
@@ -42,13 +40,13 @@ stored conversation turn is genuine model output.
 - A **blind** rating queue applying the **0–10 actionability rubric** (five 0/1/2
   dimensions: target specificity, direction/operation, collection allocation,
   context/persistence, system feasibility) plus a target-level code.
-- Human rater account management — each rater gets their own login, and each
+- Human rater account management. Each rater gets their own login, and each
   rater may score a given response only once.
 - One-click **CSV export** with feedback, the Condition-3 transcript, survey
   items, and rating means.
 
-Statistical analysis is deliberately **not** part of this application. The CSV
-export is the hand-off point; analysis happens in R/Python.
+Statistical analysis is **not** part of this application. Analysis is done in
+R/Python from the CSV export.
 
 ## Tech stack
 
@@ -57,7 +55,7 @@ export is the hand-off point; analysis happens in R/Python.
 - **Backend:** Django 5 · Django REST Framework · JWT (simplejwt) ·
   drf-spectacular (OpenAPI).
 - **Database:** PostgreSQL 16 (the only supported database).
-- **Containers:** Dockerfiles + `docker-compose` — three services: PostgreSQL,
+- **Containers:** Dockerfiles + `docker-compose`, three services: PostgreSQL,
   backend, web.
 
 ## Project layout
@@ -121,9 +119,10 @@ For a new deployment, change `DJANGO_SECRET_KEY`, `POSTGRES_PASSWORD`, and
 | `./run.sh manage <args>` | Run any `manage.py` command in the backend |
 | `./run.sh shell` | Shell into the backend container |
 
-> **Source is baked into the images** — there is no volume mount. After changing
-> backend or frontend code (or `backend/system_prompt.txt`), rebuild:
-> `docker compose up -d --build backend` (or `web`). Restarting alone runs stale code.
+> The source is copied into the images, there is no volume mount. After changing
+> backend or frontend code (or `backend/system_prompt.txt`) rebuild with
+> `docker compose up -d --build backend` (or `web`). Restarting alone runs the
+> old code.
 
 ### Ports
 
@@ -133,7 +132,7 @@ The backend container uses host networking so it can reach the local LLM at
 keeping `NEXT_PUBLIC_API_BASE_URL` matching `BACKEND_PORT`), then
 `./run.sh rebuild`.
 
-To reach it over SSH, forward **both** the web and API ports — the browser calls
+To reach it over SSH, forward **both** the web and API ports, because the browser calls
 the API directly:
 
 ```powershell
@@ -150,13 +149,13 @@ Seven tables' worth of concepts, five models:
 |-------|---------|
 | `Newsletter` | Fixed 5×3 stimulus; sections/articles stored as JSON |
 | `Participant` | One session: condition, newsletter, status, study phase; identified by an unguessable `public_id` (UUID) that doubles as the completion code |
-| `FeedbackResponse` | 1:1 with participant — `initial_text`, `final_text`, the Condition-3 `chat_log`, and the consolidated `final_draft` |
-| `SurveyResponse` | 1:1 with participant — four 1–5 items |
-| `ActionabilityRating` | 1:N per response — five 0/2 rubric dimensions + target level; one row per (response, rater) |
+| `FeedbackResponse` | 1:1 with participant. `initial_text`, `final_text`, the Condition-3 `chat_log`, and the consolidated `final_draft` |
+| `SurveyResponse` | 1:1 with participant, four 1-5 items |
+| `ActionabilityRating` | 1:N per response. Five 0-2 rubric dimensions + target level; one row per (response, rater) |
 
-`ActionabilityRating.total` is a computed property, not a stored column, so it
-can never go stale. Newsletters are `PROTECT`ed against deletion while any
-participant references them; deleting a rater account nulls `rater` but keeps
+`ActionabilityRating.total` is a computed property rather than a stored column.
+Newsletters cannot be deleted while a participant references them
+(`on_delete=PROTECT`). Deleting a rater account sets `rater` to null but keeps
 the rating.
 
 ## Collecting data with participants
@@ -171,15 +170,14 @@ https://your-host/?source=prolific&ref=PROLIFIC_PID
 - `ref` → `external_ref` (e.g. the Prolific participant id).
 - The completion code shown at the end is the participant's `public_id`.
 
-Assignment is **balanced**: each new participant fills the least-populated
-(condition × newsletter) cell, so the design stays even as enrollment grows.
+Assignment is balanced: each new participant fills the least-populated
+(condition × newsletter) cell, so the cells stay even as enrollment grows.
 
 ### Study phases
 
-`STUDY_PHASE` defaults to `pilot`. Forced URLs such as `?condition=3` are always
-stored as `preview`, so demos never mix into real data. Before real recruitment,
-set `STUDY_PHASE=main` in `.env` and restart. Assignment balance is calculated
-separately per phase.
+`STUDY_PHASE` defaults to `pilot`. URLs such as `?condition=3` are stored as
+`preview` so demo sessions do not mix into real data. Set `STUDY_PHASE=main` in
+`.env` and restart before real recruitment. Balance is calculated per phase.
 
 ### Human raters
 
@@ -188,10 +186,10 @@ the manager can create, deactivate, and reset credentials for any number of
 raters. Give each person a separate username; never share one account, because
 every saved score retains that rater's identity.
 
-Raters sign in at `/researcher/login` and are sent straight to the blind rating
-queue. They cannot open the overview, exports, or participant conversation
-history. The queue hides experimental condition, initial feedback, the assistant
-conversation, and every other rater's scores — this prevents anchoring bias.
+Raters sign in at `/researcher/login` and go straight to the blind rating queue.
+They cannot open the overview, exports or conversation history. The queue only
+shows the final feedback text, so raters do not see the condition or anyone
+else's scores.
 
 ---
 
@@ -264,7 +262,7 @@ See `.env.example` (root, for compose), `backend/.env.example`, and
   that template; the three editions differ in topical emphasis (world,
   U.S./politics, tech/sports) for feedback diversity. Stimulus data lives in
   `backend/apps/study/seed_data/newsletters.json`.
-- **Feedback is on the same page as the newsletter** — the participant reads and
+- **Feedback is on the same page as the newsletter.** The participant reads and
   writes feedback directly beneath it, mirroring POPROX's own end-of-newsletter
   feedback block.
-- **No production newsletter service is required** — the study is self-contained.
+- **No production newsletter service is required.** The study is self-contained.

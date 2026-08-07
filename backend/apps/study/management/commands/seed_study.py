@@ -3,14 +3,14 @@ login.
 
 Run with:  python manage.py seed_study
 
-Idempotent — safe to run repeatedly. Pass --reset to delete existing
+Idempotent, safe to run repeatedly. Pass --reset to delete existing
 newsletters first.
 
 The newsletter stimuli live in ``apps/study/seed_data/newsletters.json``. They
 follow the POPROX newsletter format (https://github.com/Mahamudul42/poprox_newsletter):
 a teal masthead, dark-blue section bars, and article rows with a topic label, a
 serif headline, a short summary, and a thumbnail. Each stimulus has the fixed
-format used in the study — five sections of three articles each — and is built
+format used in the study (five sections of three articles each) and is built
 from real Associated Press articles (headline, summary, image, and link).
 """
 import json

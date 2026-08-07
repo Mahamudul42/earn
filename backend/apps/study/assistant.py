@@ -1,27 +1,19 @@
-"""The feedback assistant used in Condition 3.
+"""Condition 3 feedback assistant.
 
-Per advisor guidance, the assistant runs a short multi-turn conversation that
-helps the reader make *their own* feedback clearer, more specific, and more
-actionable for the POPROX newsletter system. Each round it either asks a
-targeted clarifying question, gives a short concrete suggestion, or — when the
-feedback is actionable — thanks the reader and paraphrases the request back
-(action "ok"), at which point the client offers a confirm-and-submit step.
-It must NOT:
-- rewrite, rephrase, or "polish" the reader's words;
-- invent or suggest new preferences, topics, entities, people, organizations, or
-  sources, or infer hidden preferences;
-- lead the reader toward any particular topic, view, or source.
+Runs a short multi-turn conversation that helps the reader make their own
+feedback clearer and more specific. Each round it asks a clarifying question,
+gives a short suggestion, or returns action "ok" once the feedback is
+actionable, after which the client shows the confirm-and-submit step.
 
-The live system prompt is maintained in ``backend/system_prompt.txt`` (advisor
-supplied, POPROX-specific) so it can be edited without touching code; an
-embedded prompt below is the fallback if that file is missing.
+Rules (from the advisor's prompt): it must not rewrite or polish the reader's
+words, invent preferences or sources, or lead the reader toward any topic.
 
-The model path is intentionally local-only. It calls the self-hosted
-OpenAI-compatible endpoint configured by ``LOCAL_LLM_BASE_URL`` and never falls
-back to an external provider. There is deliberately no rule-based stand-in
-either: if the endpoint fails, ``AssistantUnavailable`` is raised so the caller
-can surface a clear error. The assistant never fabricates a turn, so every
-stored conversation turn is genuine model output.
+The live prompt is in backend/system_prompt.txt so it can be edited without
+touching code. The prompt below is used if that file is missing.
+
+Only the self-hosted model at LOCAL_LLM_BASE_URL is called. There is no
+external provider and no rule-based substitute: if the call fails,
+AssistantUnavailable is raised and the caller reports it.
 """
 
 from __future__ import annotations
@@ -42,11 +34,7 @@ _VALID_ACTIONS = {ACTION_SUGGESTION, ACTION_QUESTION, ACTION_OK}
 
 
 class AssistantUnavailable(RuntimeError):
-    """The local model could not produce a usable reply.
-
-    Raised instead of silently substituting canned text, so the participant is
-    told the assistant is unavailable rather than shown a fake turn.
-    """
+    """The local model could not be reached or returned an unusable reply."""
 
 
 # --- System prompt -----------------------------------------------------------
@@ -156,10 +144,10 @@ def active_model() -> str:
 
 
 def _chat_local(messages, temperature: float, max_tokens: int) -> str:
-    """Call the configured local OpenAI-compatible chat endpoint.
+    """Call the local OpenAI-compatible chat endpoint.
 
-    Raises ``AssistantUnavailable`` for any failure — unset base URL, network
-    error, malformed response, or empty content.
+    Raises AssistantUnavailable if the base URL is unset, the request fails, or
+    the response is malformed or empty.
     """
     conf = _local_conf()
     if not conf["base"]:
@@ -209,19 +197,17 @@ def _truncate(text: str, limit: int = 160) -> str:
 
 
 def render_newsletter_context(newsletter) -> str:
-    """Render the specific newsletter the reader read as READ-ONLY grounding.
+    """Render the newsletter the reader saw, as read-only context.
 
-    The assistant otherwise only sees the conversation, so it has to guess what
-    "the first story" or "the war coverage" refers to. Showing it the exact
-    newsletter lets it resolve those references and judge what is actually
-    present — but the block is framed strictly as context, never as material to
-    suggest from, so the assistant does not lead the reader toward content they
-    did not raise (which would violate the STRICT RULES and bias the study).
+    Without this the assistant only sees the conversation and cannot tell what
+    "the first story" or "the war coverage" refers to. The block is framed as
+    context only, so the assistant does not suggest content the reader did not
+    raise.
 
-    ``newsletter`` may be a ``Newsletter`` model instance or any object exposing
-    ``title``/``sections`` (``sections`` = a list of
-    ``{"name", "articles": [{"label","headline","summary"}]}``). Returns "" when
-    there is nothing to show.
+    newsletter can be a Newsletter instance or any object with title and
+    sections, where sections is a list of
+    {"name", "articles": [{"label", "headline", "summary"}]}.
+    Returns "" if there is nothing to render.
     """
     if newsletter is None:
         return ""
@@ -267,19 +253,15 @@ def render_newsletter_context(newsletter) -> str:
 
 
 def get_assistant_reply(history, newsletter=None) -> AssistantResult:
-    """Run one round of the Condition-3 conversation.
+    """Run one round of the Condition 3 conversation.
 
-    ``history`` is the conversation so far as a list of
-    ``{"role": "user"|"assistant", "content": str, "action": str?}`` dicts,
-    ending with the reader's newest message. Assistant turns are replayed to the
-    model in its own JSON output format so the format stays stable across turns.
+    history is the conversation so far, a list of
+    {"role": "user"|"assistant", "content": str, "action": str?} ending with the
+    reader's newest message. Past assistant turns are replayed in the model's
+    own JSON format so the output format stays stable.
 
-    The local LLM is the only network destination. Raises
-    ``AssistantUnavailable`` if it cannot be reached or its reply cannot be
-    parsed — no canned reply is ever substituted. The assistant clarifies and
-    suggests; it never rewrites the reader's text. ``newsletter`` (optional) is
-    the exact stimulus the reader read; when given, it is added as read-only
-    grounding so the assistant can resolve references.
+    Raises AssistantUnavailable if the model cannot be reached or its reply
+    cannot be parsed. newsletter is optional and adds read-only context.
     """
     system = SYSTEM_PROMPT + "\n" + CONVERSATION_ADDENDUM
     context = render_newsletter_context(newsletter)
@@ -306,19 +288,13 @@ def get_assistant_reply(history, newsletter=None) -> AssistantResult:
     return parsed
 
 
-# --- Final-feedback consolidation ---------------------------------------------
-# When the participant reaches the confirm-and-submit step, we assemble ONE
-# submission-ready feedback text out of everything they said across the
-# conversation. This is faithful consolidation, not authoring: it may only
-# combine and order the reader's own stated preferences.
+# --- Final-feedback consolidation --------------------------------------------
+# At the confirm-and-submit step we build one feedback text out of everything
+# the reader said. It only combines and orders their own words.
 #
-# The consolidation is prefixed with the same POPROX ``SYSTEM_PROMPT`` the chat
-# assistant uses, so the final summary honours the same system constraints
-# (capabilities/limits, neutrality, no-invention, sensitive-info handling) that
-# the reader saw enforced during the conversation. ``FINALIZE_PROMPT`` below
-# only *overrides* that prompt's JSON output format and swaps the per-turn task
-# (ask/suggest/ok) for a one-shot consolidation task; every other rule carries
-# over unchanged.
+# The same SYSTEM_PROMPT is prepended so the summary follows the same rules the
+# chat did. FINALIZE_PROMPT only replaces the JSON output format and the
+# per-turn task; the rest still applies.
 FINALIZE_PROMPT = """CONSOLIDATION STEP — this is a different task from the round-by-round \
 conversation described above.
 
@@ -353,17 +329,9 @@ to; never copy the assistant's questions or suggestions into the feedback.
 
 
 def compose_final_feedback(history, newsletter=None) -> str:
-    """Consolidate the whole conversation into one submission-ready feedback
-    text in the reader's own voice.
+    """Turn the conversation into one feedback text in the reader's own voice.
 
-    The consolidation is grounded in the same POPROX ``SYSTEM_PROMPT`` the chat
-    assistant used, so the final summary respects the identical system
-    constraints (capabilities/limits and strict rules); ``FINALIZE_PROMPT``
-    overrides only that prompt's output format and per-turn task. ``newsletter``
-    (optional) is added as the same read-only grounding used during the chat.
-
-    Raises ``AssistantUnavailable`` if the local endpoint cannot be reached; the
-    caller decides what to show the participant.
+    Raises AssistantUnavailable if the local endpoint cannot be reached.
     """
     transcript = []
     for m in history:

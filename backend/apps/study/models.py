@@ -43,9 +43,8 @@ class TargetLevel(models.TextChoices):
 class Newsletter(models.Model):
     """A fixed-format newsletter stimulus.
 
-    Format is intentionally fixed (five sections, three articles each). Only the
-    content can be commented on — this mirrors the participant-facing framing in
-    the study design.
+    Format is fixed at five sections of three articles each. Participants
+    comment on the content, not the layout.
     """
 
     slug = models.SlugField(unique=True)

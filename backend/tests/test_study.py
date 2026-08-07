@@ -1,9 +1,8 @@
-"""Focused tests for the EARN study: assignment balance + condition toggle, the
-clarify/advise assistant, the participant flow, and researcher permissions/rating.
+"""Tests for assignment, the Condition 3 assistant, the participant flow and
+researcher permissions.
 
-The Condition-3 assistant is local-model-only with no rule-based stand-in, so
-tests that exercise a conversation stub the model call. Tests that exercise an
-outage leave it unstubbed and assert the flow degrades cleanly.
+Tests that need a conversation stub the model call. Tests for the outage path
+leave it unstubbed.
 """
 
 import json
@@ -38,19 +37,14 @@ User = get_user_model()
 
 @pytest.fixture(autouse=True)
 def _no_live_llm(settings):
-    """Keep tests off the network. Unless a test stubs the model, any assistant
-    call raises AssistantUnavailable."""
+    """Keep tests off the network."""
     settings.LOCAL_LLM_BASE_URL = ""
     settings.LOCAL_LLM_API_KEY = ""
 
 
 @pytest.fixture
 def fake_llm(monkeypatch):
-    """Stub the local model so conversation tests are deterministic.
-
-    Returns a list recording each call's messages, so tests can assert what was
-    actually sent to the model.
-    """
+    """Stub the local model. Returns the list of messages sent on each call."""
     calls = []
 
     def _fake_chat(messages, temperature, max_tokens):
@@ -64,7 +58,7 @@ def fake_llm(monkeypatch):
             return json.dumps(
                 {"action": "question", "message": "Which topics would you change?"}
             )
-        return json.dumps({"action": "ok", "message": "Thanks — that is clear."})
+        return json.dumps({"action": "ok", "message": "Thanks, that is clear."})
 
     monkeypatch.setattr(assistant_module, "_chat_local", _fake_chat)
     return calls
@@ -107,15 +101,14 @@ def test_assistant_reply_parses_model_json(fake_llm):
 
 def test_assistant_json_parser_rejects_malformed_replies():
     assert _parse_assistant_json('{"action": "question", "message": "ok?"}') is not None
-    # Unknown action, empty message, and non-JSON must all be rejected rather
-    # than passed through as a turn.
+    # Unknown action, empty message and non-JSON should all be rejected.
     assert _parse_assistant_json('{"action": "rewrite", "message": "hi"}') is None
     assert _parse_assistant_json('{"action": "question", "message": ""}') is None
     assert _parse_assistant_json("not json at all") is None
 
 
 def test_assistant_raises_when_model_unreachable():
-    """No rule-based stand-in: an outage must surface, never be papered over."""
+    """There is no fallback, so a failed call has to raise."""
     with pytest.raises(AssistantUnavailable):
         get_assistant_reply([{"role": "user", "content": "make it better"}])
     with pytest.raises(AssistantUnavailable):
@@ -132,8 +125,7 @@ def test_assistant_replays_prior_turns_in_json_format(fake_llm):
     assert result.action == ACTION_OK
     sent = fake_llm[-1]
     assistant_turn = next(m for m in sent if m["role"] == "assistant")
-    # Prior assistant turns are replayed as the model's own JSON so the output
-    # format stays stable across rounds.
+    # Past turns go back in as JSON so the format stays stable.
     assert json.loads(assistant_turn["content"])["action"] == "question"
 
 
@@ -156,8 +148,7 @@ def test_newsletter_context_is_grounding_only():
     ctx = render_newsletter_context(NL())
     assert "Your Top Stories" in ctx
     assert "Deal to end the war" in ctx
-    # The anti-leading guardrail must be present so the model treats the
-    # newsletter as reference only, never as suggestion material.
+    # The guardrail keeps the model from suggesting from the newsletter.
     assert "never suggest" in ctx.lower()
     assert "…" in ctx  # long summaries are truncated
 
@@ -172,7 +163,7 @@ def test_newsletter_context_is_grounding_only():
 
 # --- Participant-facing copy ------------------------------------------------
 def test_edition_label_is_always_today(client, newsletters):
-    """The masthead date is rendered fresh so the stimulus never reads as stale."""
+    """The masthead date should follow the current date."""
     from django.utils import timezone
 
     from apps.study.content import current_edition_label
@@ -189,13 +180,10 @@ def test_edition_label_is_always_today(client, newsletters):
 
 
 def test_condition2_example_only_asks_for_feasible_operations():
-    """Condition 2's example must not model requests POPROX cannot satisfy.
+    """The Condition 2 copy should not ask for things POPROX cannot do.
 
-    The system can select, filter, balance, de-duplicate and reorder articles,
-    but it cannot rewrite article text, change preview length, or use a
-    publisher other than AP. An example demonstrating those would teach
-    Condition-2 participants to make infeasible requests and would depress the
-    system_feasibility rubric dimension relative to Condition 1.
+    It can select, filter, balance and reorder articles, but not rewrite text,
+    change preview length or use another publisher.
     """
     from apps.study.content import CONDITION2_EXAMPLE, CONDITION2_GUIDANCE
 
@@ -252,7 +240,9 @@ def test_forced_condition_overrides_toggle(newsletters, settings):
 
 
 # --- Participant flow -------------------------------------------------------
-def test_full_participant_flow(client, newsletters):
+def test_full_participant_flow(client, newsletters, fake_llm):
+    # Assignment is random here so the phase stays pilot. The model is stubbed
+    # because the draw can land on Condition 3.
     start = client.post(
         "/api/session/start/", {"recruitment_source": "direct"}, format="json"
     )
@@ -288,8 +278,7 @@ def test_full_participant_flow(client, newsletters):
 
 
 def test_condition3_chat_flow(client, newsletters, fake_llm):
-    """Condition 3 runs a multi-turn conversation: initial feedback -> assistant
-    round(s) -> confirm-and-submit. The full conversation is stored in chat_log."""
+    """Initial feedback, then assistant rounds, then confirm and submit."""
     start = client.post(
         "/api/session/start/",
         {"recruitment_source": "direct", "condition": 3},
@@ -326,8 +315,7 @@ def test_condition3_chat_flow(client, newsletters, fake_llm):
         "assistant",
     ]
 
-    # Consolidated draft for the confirm panel, stored for the faithfulness
-    # analysis alongside whatever the participant finally submits.
+    # Draft for the confirm panel, stored next to what they submit.
     draft = client.post(f"/api/session/{pid}/feedback/final-draft/")
     assert draft.status_code == 200
     assert "local science" in draft.data["draft"]
@@ -349,7 +337,7 @@ def test_condition3_chat_flow(client, newsletters, fake_llm):
 
 
 def test_condition3_reports_503_when_assistant_unavailable(client, newsletters):
-    """An outage must not block the participant or invent an assistant turn."""
+    """An outage should not block the participant."""
     start = client.post(
         "/api/session/start/",
         {"recruitment_source": "direct", "condition": 3},
@@ -365,13 +353,13 @@ def test_condition3_reports_503_when_assistant_unavailable(client, newsletters):
     assert initial.status_code == 503
     assert "unavailable" in initial.data["detail"].lower()
 
-    # The participant's own words are kept, and no assistant turn was recorded.
+    # Their text is kept and no assistant turn is stored.
     fb = FeedbackResponse.objects.get(participant__public_id=pid)
     assert fb.initial_text == "make it better"
     assert fb.chat_log == []
     assert fb.assistant_message == ""
 
-    # They can still submit what they wrote, so the session is never lost.
+    # They can still submit what they wrote.
     final = client.post(
         f"/api/session/{pid}/feedback/final/",
         {"final_text": "make it better", "time_on_task_seconds": 30},
@@ -483,7 +471,7 @@ def test_manager_creates_distinct_blinded_human_raters(client, newsletters):
     queue = client.get("/api/research/responses/?unrated=1")
     assert queue.status_code == 200
     row = queue.data["results"][0]
-    # Blinding: condition, chat log and other raters' scores are never exposed.
+    # The queue only exposes the id and the final text.
     assert set(row) == {"id", "final_text"}
     assert row["id"] == feedback.id
 
@@ -528,6 +516,5 @@ def test_export_includes_final_draft_and_chat_log(client, newsletters):
     body = resp.content.decode()
     assert "final_draft" in body and "chat_log_json" in body
     assert "I want more local science." in body
-    # Regression guard: the LLM-rating subsystem is gone, so no machine score
-    # can reappear in the export and be mistaken for a human rating.
+    # LLM ratings are gone, so none should show up as human ratings.
     assert "llm" not in body.lower()

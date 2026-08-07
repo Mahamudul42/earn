@@ -1,12 +1,7 @@
-"""Simplify the schema down to what the study actually uses.
+"""Drop the LLM rating and analysis-exclusion tables and unused fields.
 
-Drops the LLM auto-rating subsystem, the statistical-analysis exclusion audit,
-and several fields that were written but never read.
-
-IMPORTANT: machine-generated ratings are deleted *before* the ``is_llm`` column
-is dropped. Without this, every ``is_llm=True`` row would silently become
-indistinguishable from a human rating and would be counted as one in the CSV
-export and the researcher dashboard.
+The LLM ratings are deleted first, while is_llm can still tell them apart from
+human ratings.
 """
 
 from django.conf import settings
@@ -14,13 +9,12 @@ from django.db import migrations, models
 
 
 def delete_llm_ratings(apps, schema_editor):
-    """Remove machine-generated ratings while ``is_llm`` still distinguishes them."""
     ActionabilityRating = apps.get_model('study', 'ActionabilityRating')
     ActionabilityRating.objects.filter(is_llm=True).delete()
 
 
 def noop_reverse(apps, schema_editor):
-    """Deleted measurements cannot be reconstructed; reversing is a no-op."""
+    pass
 
 
 class Migration(migrations.Migration):
