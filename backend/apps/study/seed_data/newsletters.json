@@ -1,0 +1,419 @@
+[
+  {
+    "slug": "poprox-world",
+    "title": "Your POPROX Briefing",
+    "edition_label": "Saturday Edition · June 21, 2026",
+    "theme": "Personalized general news (world emphasis)",
+    "intro": "Your personalized roundup for today.",
+    "sections": [
+      {
+        "name": "Your Top Stories",
+        "articles": [
+          {
+            "label": "Iran war",
+            "headline": "Iranians endure war fatigue and soaring prices as conflict deepens domestic woes",
+            "summary": "Iranians are living between confusion and exhaustion as the country and its economy are squeezed between war and multiplying crises at home",
+            "image": "https://mapi.associatedpress.com/v2/items/cd2c945658814b33a87a5eb4a424e077.0/preview/preview.jpg?nfe=true&amp;s=512&amp;wm=false&amp;app=MPK&amp;tag=iid~cd2c945658814b33a87a5eb4a424e077!rsn~0!cid~dd24553f23cb44c790a16d2b447351a6!orgId~124748!qt~uz1avGkJTCeF!orgNm~Five%20University%20Consortium!role~Preview!mt~photo!fmt~JPEG%20Baseline",
+            "url": "https://apnews.com/article/us-iran-war-tehran-fear-economy-inflation-d19c7189a3da16cd111fbad7c68f0c20"
+          },
+          {
+            "label": "Sanctions and embargoes",
+            "headline": "Díaz-Canel announces economic reforms to attract investment and involve Cubans abroad",
+            "summary": "Cuban President Miguel Díaz-Canel has announced economic reforms to attract investment and involve Cubans abroad in the economy",
+            "image": "https://mapi.associatedpress.com/v2/items/4ae5750e2a584777867761574c2137ca.0/preview/preview.jpg?nfe=true&amp;s=512&amp;wm=false&amp;app=MPK&amp;tag=iid~4ae5750e2a584777867761574c2137ca!rsn~0!cid~e15885a21c984c249edea0a15804fd22!orgId~124748!qt~uz1avGkJTCeF!orgNm~Five%20University%20Consortium!role~Preview!mt~photo!fmt~JPEG%20Baseline",
+            "url": "https://apnews.com/article/cuba-colombia-aid-ship-embargo-cbffe7cf4f435569e1a6d7e42a2bb5fd"
+          },
+          {
+            "label": "Iran war",
+            "headline": "US and Iran have agreed to wording of a deal to end their war, Pakistan's prime minister says",
+            "summary": "Pakistan's prime minister says the United State and Iran have agreed to wording of an agreement aimed at ending their war in the Middle East",
+            "image": "https://mapi.associatedpress.com/v2/items/d4bcab878e8d4e02b232cd7cdde87b5f.0/preview/preview.jpg?nfe=true&amp;s=512&amp;wm=false&amp;app=MPK&amp;tag=iid~d4bcab878e8d4e02b232cd7cdde87b5f!rsn~0!cid~460767cccf9f4a4ea634eb1fbd965e87!orgId~124748!qt~uz1avGkJTCeF!orgNm~Five%20University%20Consortium!role~Preview!mt~photo!fmt~JPEG%20Baseline",
+            "url": "https://apnews.com/article/iran-us-ceasefire-hezbollah-israel-12-june-2026-7085e386e1c40ee6cfe634210970143f"
+          }
+        ]
+      },
+      {
+        "name": "World News",
+        "articles": [
+          {
+            "label": "Iran war",
+            "headline": "What we know about a possible deal to end the Iran war",
+            "summary": "The United States and Iran appear close to a deal to end their war and reopen the Strait of Hormuz",
+            "image": "https://mapi.associatedpress.com/v2/items/b2ba78cc2b6e4e0e906a8fa75598b44f.1/preview/preview.jpg?nfe=true&amp;s=512&amp;wm=false&amp;app=MPK&amp;tag=iid~b2ba78cc2b6e4e0e906a8fa75598b44f!rsn~1!cid~f82d3e8d6a394dbaaf0c67c9ea2bd523!orgId~124748!qt~uz1avGkJTCeF!orgNm~Five%20University%20Consortium!role~Preview!mt~photo!fmt~JPEG%20Baseline",
+            "url": "https://apnews.com/article/iran-war-us-pakistan-ceasefire-what-to-know-949710df39e3f1033cbb6beda3955814"
+          },
+          {
+            "label": "Military and defense",
+            "headline": "Lebanese army withdraws from southern village after Israeli troops advance nearby",
+            "summary": "The Lebanese army has withdrawn its troops from a base in a southern village after Israeli forces advanced nearby",
+            "image": "https://mapi.associatedpress.com/v2/items/4792b703dd0f4335bb34e10ef30d83c5.0/preview/preview.jpg?nfe=true&amp;s=512&amp;wm=false&amp;app=MPK&amp;tag=iid~4792b703dd0f4335bb34e10ef30d83c5!rsn~0!cid~eb18e04e76f244a3ad3a98c4f23d3c14!orgId~124748!qt~uz1avGkJTCeF!orgNm~Five%20University%20Consortium!role~Preview!mt~photo!fmt~JPEG%20Baseline",
+            "url": "https://apnews.com/article/lebanon-israel-iran-hezbollah-7423a633aad2c74378e3024110af0a09"
+          },
+          {
+            "label": "Military and defense",
+            "headline": "China opposes US move to list top firms as military companies",
+            "summary": "China says it firmly opposes the U.S. adding several prominent Chinese businesses to its list of military-linked companies",
+            "image": "https://mapi.associatedpress.com/v2/items/f94c04b7f0764aaeb9fb3a882204fbfe.0/preview/preview.jpg?nfe=true&amp;s=512&amp;wm=false&amp;app=MPK&amp;tag=iid~f94c04b7f0764aaeb9fb3a882204fbfe!rsn~0!cid~a0ca862f0f2943f6ab7a9dfc8963d8ac!orgId~124748!qt~uz1avGkJTCeF!orgNm~Five%20University%20Consortium!role~Preview!mt~photo!fmt~JPEG%20Baseline",
+            "url": "https://apnews.com/article/china-companies-military-pentagon-us-5adea55a203024477e7c5204f1f650aa"
+          }
+        ]
+      },
+      {
+        "name": "U.S. News",
+        "articles": [
+          {
+            "label": "Tornadoes",
+            "headline": "Tornadoes in Illinois and Indiana leave residents grappling with damage; cleanup efforts underway",
+            "summary": "Residents in tornado-ravaged areas in Illinois and Indiana are grappling with damage to their homes and neighborhoods after a strong line of storms barreled through communities south of Chicago",
+            "image": "https://mapi.associatedpress.com/v2/items/72438f58073841b1a45579b3bada824a.0/preview/preview.jpg?nfe=true&amp;s=512&amp;wm=false&amp;app=MPK&amp;tag=iid~72438f58073841b1a45579b3bada824a!rsn~0!cid~a02096809e6646e1bb4f3870fd249ec8!orgId~124748!qt~uz1avGkJTCeF!orgNm~Five%20University%20Consortium!role~Preview!mt~photo!fmt~JPEG%20Baseline",
+            "url": "https://apnews.com/article/severe-weather-tornadoes-indiana-illinois-chicago-midwest-c07fd694ea18dacbc80ea91ee7c24c4a"
+          },
+          {
+            "label": "Soccer",
+            "headline": "A dream day for New York fans with Knicks on the road to clinch and Brazil vs. Morocco in World Cup",
+            "summary": "If there’s a saving grace from the bedlam that is about to ensue in New York City on Saturday, with the Knicks on the verge of a championship and Brazil taking on Morocco in the World Cup, it is that Game 5 of the NBA Finals is on the road",
+            "image": "https://mapi.associatedpress.com/v2/items/3646e6dfed7e445b99dd99564b4ef001.1/preview/preview.jpg?nfe=true&amp;s=512&amp;wm=false&amp;app=MPK&amp;tag=iid~3646e6dfed7e445b99dd99564b4ef001!rsn~1!cid~80e38cf7262743bfbfa54b25d93a420a!orgId~124748!qt~uz1avGkJTCeF!orgNm~Five%20University%20Consortium!role~Preview!mt~photo!fmt~JPEG%20Baseline",
+            "url": "https://apnews.com/article/knicks-world-cup-madison-square-garden-fans-3145ad0bf46f0fd17763272a51a5632b"
+          },
+          {
+            "label": "Soccer",
+            "headline": "Roaring crowds in stars and stripes show up for the US team, and soccer's moment in their country",
+            "summary": "Roaring crowds wearing stars and stripes came out to support the U.S. men's soccer team in their World Cup opener against Paraguay",
+            "image": "https://mapi.associatedpress.com/v2/items/9dca1e488f3140669f4f463e96e6f7cf.0/preview/preview.jpg?nfe=true&amp;s=512&amp;wm=false&amp;app=MPK&amp;tag=iid~9dca1e488f3140669f4f463e96e6f7cf!rsn~0!cid~1451d39b576e46c18b4a95f917248999!orgId~124748!qt~uz1avGkJTCeF!orgNm~Five%20University%20Consortium!role~Preview!mt~photo!fmt~JPEG%20Baseline",
+            "url": "https://apnews.com/article/us-fans-world-cup-soccer-popularity-c2cc4cae618d15d21ae9bd1d6746e9f8"
+          }
+        ]
+      },
+      {
+        "name": "Technology",
+        "articles": [
+          {
+            "label": "Artificial intelligence",
+            "headline": "Anthropic says it has taken its latest AI models offline to comply with new export controls",
+            "summary": "AI giant Anthropic says it has taken its latest artificial intelligence models, known as Fable 5 and Mythos 5, offline to comply with a directive from the Trump administration to prevent their use by foreign nationals",
+            "image": "https://mapi.associatedpress.com/v2/items/aa010c3e5a7c478b8266003749c6bf90.0/preview/preview.jpg?nfe=true&amp;s=512&amp;wm=false&amp;app=MPK&amp;tag=iid~aa010c3e5a7c478b8266003749c6bf90!rsn~0!cid~f2cc6c391dab46318848f680c939b144!orgId~124748!qt~uz1avGkJTCeF!orgNm~Five%20University%20Consortium!role~Preview!mt~photo!fmt~JPEG%20Baseline",
+            "url": "https://apnews.com/article/anthropic-artificial-intelligence-trump-fable-mythos-d9cc7df5c02e93837d0f0bfb24d5cfd2"
+          },
+          {
+            "label": "Information technology",
+            "headline": "Anthropic announces 'Claude Corps' to teach nonprofits to use AI more effectively",
+            "summary": "Anthropic will donate $150 million to launch a fellowship program called Claude Corps that plans to help nonprofits effectively use artificial intelligence by embedding 1,000 trained fellows in various organizations for a year",
+            "image": "https://mapi.associatedpress.com/v2/items/ff39c674a03442af82479e1eda4582d7.0/preview/preview.jpg?nfe=true&amp;s=512&amp;wm=false&amp;app=MPK&amp;tag=iid~ff39c674a03442af82479e1eda4582d7!rsn~0!cid~418b91c1d54542c39f4c3c207e041a14!orgId~124748!qt~x-6O_Gk6LeF!orgNm~Five%20University%20Consortium!role~Preview!mt~photo!fmt~JPEG%20Baseline",
+            "url": "https://apnews.com/article/anthropic-ai-claude-corps-daniela-amodei-b1c130a08417d13e1256f8982d233b0e"
+          },
+          {
+            "label": "Spacecraft",
+            "headline": "As UFOs go mainstream, the jury is out on what the existence of alien life might mean for religion",
+            "summary": "Steven Spielberg's new film “Disclosure Day” explores extraterrestrial life and its impact on religion",
+            "image": "https://mapi.associatedpress.com/v2/items/7fa1b4fadb9447e6bdcab9e0020f7bd7.0/preview/preview.jpg?nfe=true&amp;s=512&amp;wm=false&amp;app=MPK&amp;tag=iid~7fa1b4fadb9447e6bdcab9e0020f7bd7!rsn~0!cid~1dca755aaa9c4e3c92280e10e7614db2!orgId~124748!qt~uz1avGkJTCeF!orgNm~Five%20University%20Consortium!role~Preview!mt~photo!fmt~JPEG%20Baseline",
+            "url": "https://apnews.com/article/ufo-religion-aliens-demons-disclosure-day-500c2280dbdbcedfa09f3d2aa298f338"
+          }
+        ]
+      },
+      {
+        "name": "In Other News",
+        "articles": [
+          {
+            "label": "Military and defense",
+            "headline": "Taiwan's opposition leader touts talks with China as necessary for peace during US trip",
+            "summary": "Taiwan’s Beijing-friendly opposition leader says her party is committed to defense of the self-ruled island that China views as its own but that peace is possible by taking permanent secession off the table",
+            "image": "https://mapi.associatedpress.com/v2/items/7c2c2877f729453f859e4d977846ab37.0/preview/preview.jpg?nfe=true&amp;s=512&amp;wm=false&amp;app=MPK&amp;tag=iid~7c2c2877f729453f859e4d977846ab37!rsn~0!cid~2c52ff5039704bbf89617b4bb400094a!orgId~124748!qt~uz1avGkJTCeF!orgNm~Five%20University%20Consortium!role~Preview!mt~photo!fmt~JPEG%20Baseline",
+            "url": "https://apnews.com/article/taiwan-opposition-leader-china-trump-13c4c9c7f1bb0b358a4b3df1ceea0bf0"
+          },
+          {
+            "label": "War and unrest",
+            "headline": "As officials again say Iran war could soon end, some Trump objectives are unfulfilled",
+            "summary": "President Donald Trump says the U.S. is close to signing a deal with Iran to wind down the war, with a memorandum of understanding to be signed in Europe as soon as this weekend",
+            "image": "https://mapi.associatedpress.com/v2/items/960e798173b84616b229c614a0076294.0/preview/preview.jpg?nfe=true&amp;s=512&amp;wm=false&amp;app=MPK&amp;tag=iid~960e798173b84616b229c614a0076294!rsn~0!cid~2e78de56705943b1bcb75a11b626b6ff!orgId~124748!qt~uz1avGkJTCeF!orgNm~Five%20University%20Consortium!role~Preview!mt~photo!fmt~JPEG%20Baseline",
+            "url": "https://apnews.com/article/trump-iran-war-objectives-goals-alliances-fde9333300bb6e2ef424133a32f09e0a"
+          },
+          {
+            "label": "Iran war",
+            "headline": "Iran war is straining African airlines, industry body warns",
+            "summary": "The war in Iran is driving up jet fuel prices, worsening supply strains for African airlines",
+            "image": "https://mapi.associatedpress.com/v2/items/697b6ce20d384b3b8be387f9f0321de2.0/preview/preview.jpg?nfe=true&amp;s=512&amp;wm=false&amp;app=MPK&amp;tag=iid~697b6ce20d384b3b8be387f9f0321de2!rsn~0!cid~97d76c333f3c4b58950d161c2d220066!orgId~124748!qt~uz1avGkJTCeF!orgNm~Five%20University%20Consortium!role~Preview!mt~photo!fmt~JPEG%20Baseline",
+            "url": "https://apnews.com/article/africa-airlines-iran-hormuz-jet-fuel-80494b249acc4c028d1ebf1ac6634c11"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "slug": "poprox-us",
+    "title": "Your POPROX Briefing",
+    "edition_label": "Saturday Edition · June 21, 2026",
+    "theme": "Personalized general news (U.S. & politics emphasis)",
+    "intro": "Your personalized roundup for today.",
+    "sections": [
+      {
+        "name": "Your Top Stories",
+        "articles": [
+          {
+            "label": "Politics",
+            "headline": "Minnesota Gov. Tim Walz's next move: Energizing Democrats in South Carolina and California",
+            "summary": "Minnesota Gov. Tim Walz will seek to energize activists at Democratic state conventions in South Carolina and California on Saturday.",
+            "image": "https://mapi.associatedpress.com/v2/items/b9356a01c60640d98da83a5be44c9169.0/preview/preview.jpg",
+            "url": ""
+          },
+          {
+            "label": "U.S. News",
+            "headline": "Takeaways from AP’s report on how federal public health cuts are affecting communities across the US",
+            "summary": "Americans are losing an array of people and programs dedicated to keeping them healthy.",
+            "image": "https://mapi.associatedpress.com/v2/items/3b70fa09b9db4459b0322b866922af69.1/preview/preview.jpg",
+            "url": ""
+          },
+          {
+            "label": "Business",
+            "headline": "Musk put a spotlight on federal spending, but cut less than he wanted",
+            "summary": "Billionaire Elon Musk is expected to fall far short of even his most modest goal of shaving $150 billion from the federal deficit.",
+            "image": "https://mapi.associatedpress.com/v2/items/d3a9ff3d9b444370ae43fba24eb47d6d.0/preview/preview.jpg",
+            "url": ""
+          }
+        ]
+      },
+      {
+        "name": "U.S. News",
+        "articles": [
+          {
+            "label": "Tornadoes",
+            "headline": "Tornadoes in Illinois and Indiana leave residents grappling with damage; cleanup efforts underway",
+            "summary": "Residents in tornado-ravaged areas in Illinois and Indiana are grappling with damage to their homes and neighborhoods after a strong line of storms barreled through communities south of Chicago",
+            "image": "https://mapi.associatedpress.com/v2/items/72438f58073841b1a45579b3bada824a.0/preview/preview.jpg?nfe=true&amp;s=512&amp;wm=false&amp;app=MPK&amp;tag=iid~72438f58073841b1a45579b3bada824a!rsn~0!cid~a02096809e6646e1bb4f3870fd249ec8!orgId~124748!qt~uz1avGkJTCeF!orgNm~Five%20University%20Consortium!role~Preview!mt~photo!fmt~JPEG%20Baseline",
+            "url": "https://apnews.com/article/severe-weather-tornadoes-indiana-illinois-chicago-midwest-c07fd694ea18dacbc80ea91ee7c24c4a"
+          },
+          {
+            "label": "Health",
+            "headline": "US measles cases rise slightly as Colorado reports a new outbreak",
+            "summary": "The U.S. is up to 1,088 confirmed measles cases.",
+            "image": "https://mapi.associatedpress.com/v2/items/5a1dd41d649144a382083adc51106abd.0/preview/preview.jpg",
+            "url": ""
+          },
+          {
+            "label": "Business",
+            "headline": "States are rolling out red carpets for data centers. But some lawmakers are pushing back",
+            "summary": "The explosive growth of the data centers needed to power America’s fast-rising demand for artificial intelligence and cloud computing has spurred states to dangle incentives in hopes of landing an economic bonanza.",
+            "image": "https://mapi.associatedpress.com/v2/items/80806f01804649338678f4e601010fe4.1/preview/preview.jpg",
+            "url": ""
+          }
+        ]
+      },
+      {
+        "name": "Politics",
+        "articles": [
+          {
+            "label": "Politics",
+            "headline": "Minnesota Gov. Tim Walz, in South Carolina remarks, calls on Democrats 'to be a little meaner'",
+            "summary": "Minnesota Gov. Tim Walz has keynoted the Democratic state conventions in South Carolina.",
+            "image": "https://mapi.associatedpress.com/v2/items/8a24b2aa2df844f6bac2e12852587bb3.0/preview/preview.jpg",
+            "url": ""
+          },
+          {
+            "label": "War and unrest",
+            "headline": "As officials again say Iran war could soon end, some Trump objectives are unfulfilled",
+            "summary": "President Donald Trump says the U.S. is close to signing a deal with Iran to wind down the war, with a memorandum of understanding to be signed in Europe as soon as this weekend",
+            "image": "https://mapi.associatedpress.com/v2/items/960e798173b84616b229c614a0076294.0/preview/preview.jpg?nfe=true&amp;s=512&amp;wm=false&amp;app=MPK&amp;tag=iid~960e798173b84616b229c614a0076294!rsn~0!cid~2e78de56705943b1bcb75a11b626b6ff!orgId~124748!qt~uz1avGkJTCeF!orgNm~Five%20University%20Consortium!role~Preview!mt~photo!fmt~JPEG%20Baseline",
+            "url": "https://apnews.com/article/trump-iran-war-objectives-goals-alliances-fde9333300bb6e2ef424133a32f09e0a"
+          },
+          {
+            "label": "Military and defense",
+            "headline": "Taiwan's opposition leader touts talks with China as necessary for peace during US trip",
+            "summary": "Taiwan’s Beijing-friendly opposition leader says her party is committed to defense of the self-ruled island that China views as its own but that peace is possible by taking permanent secession off the table",
+            "image": "https://mapi.associatedpress.com/v2/items/7c2c2877f729453f859e4d977846ab37.0/preview/preview.jpg?nfe=true&amp;s=512&amp;wm=false&amp;app=MPK&amp;tag=iid~7c2c2877f729453f859e4d977846ab37!rsn~0!cid~2c52ff5039704bbf89617b4bb400094a!orgId~124748!qt~uz1avGkJTCeF!orgNm~Five%20University%20Consortium!role~Preview!mt~photo!fmt~JPEG%20Baseline",
+            "url": "https://apnews.com/article/taiwan-opposition-leader-china-trump-13c4c9c7f1bb0b358a4b3df1ceea0bf0"
+          }
+        ]
+      },
+      {
+        "name": "World News",
+        "articles": [
+          {
+            "label": "World News",
+            "headline": "Paris probes antisemitic vandalism targeting synagogues and a Holocaust memorial",
+            "summary": "Authorities in Paris have launched an investigation after several Jewish sites across the capital were defaced with green paint overnight.",
+            "image": "https://mapi.associatedpress.com/v2/items/37e762d2d4714bf7a630212f974de8f4.0/preview/preview.jpg",
+            "url": ""
+          },
+          {
+            "label": "Iran war",
+            "headline": "What we know about a possible deal to end the Iran war",
+            "summary": "The United States and Iran appear close to a deal to end their war and reopen the Strait of Hormuz",
+            "image": "https://mapi.associatedpress.com/v2/items/b2ba78cc2b6e4e0e906a8fa75598b44f.1/preview/preview.jpg?nfe=true&amp;s=512&amp;wm=false&amp;app=MPK&amp;tag=iid~b2ba78cc2b6e4e0e906a8fa75598b44f!rsn~1!cid~f82d3e8d6a394dbaaf0c67c9ea2bd523!orgId~124748!qt~uz1avGkJTCeF!orgNm~Five%20University%20Consortium!role~Preview!mt~photo!fmt~JPEG%20Baseline",
+            "url": "https://apnews.com/article/iran-war-us-pakistan-ceasefire-what-to-know-949710df39e3f1033cbb6beda3955814"
+          },
+          {
+            "label": "Military and defense",
+            "headline": "China opposes US move to list top firms as military companies",
+            "summary": "China says it firmly opposes the U.S. adding several prominent Chinese businesses to its list of military-linked companies",
+            "image": "https://mapi.associatedpress.com/v2/items/f94c04b7f0764aaeb9fb3a882204fbfe.0/preview/preview.jpg?nfe=true&amp;s=512&amp;wm=false&amp;app=MPK&amp;tag=iid~f94c04b7f0764aaeb9fb3a882204fbfe!rsn~0!cid~a0ca862f0f2943f6ab7a9dfc8963d8ac!orgId~124748!qt~uz1avGkJTCeF!orgNm~Five%20University%20Consortium!role~Preview!mt~photo!fmt~JPEG%20Baseline",
+            "url": "https://apnews.com/article/china-companies-military-pentagon-us-5adea55a203024477e7c5204f1f650aa"
+          }
+        ]
+      },
+      {
+        "name": "In Other News",
+        "articles": [
+          {
+            "label": "Lifestyle",
+            "headline": "Most LGBTQ+ adults feel Americans don't accept transgender people, Pew poll finds",
+            "summary": "LGBTQ+ people in the U.S. see lower social acceptance for transgender people than those who are lesbian, gay or bisexual.",
+            "image": "https://mapi.associatedpress.com/v2/items/3fdaa634c3234d98a972cd2dfe7c7acc.0/preview/preview.jpg",
+            "url": ""
+          },
+          {
+            "label": "Sports",
+            "headline": "California track-and-field final enters spotlight for rule change after trans athlete's success",
+            "summary": "The California high school track-and-field championship has kicked off to a relatively quiet atmosphere.",
+            "image": "https://mapi.associatedpress.com/v2/items/fd1d9206e26a4e39805fe4d89c02d78c.0/preview/preview.jpg",
+            "url": ""
+          },
+          {
+            "label": "Soccer",
+            "headline": "Roaring crowds in stars and stripes show up for the US team, and soccer's moment in their country",
+            "summary": "Roaring crowds wearing stars and stripes came out to support the U.S. men's soccer team in their World Cup opener against Paraguay",
+            "image": "https://mapi.associatedpress.com/v2/items/9dca1e488f3140669f4f463e96e6f7cf.0/preview/preview.jpg?nfe=true&amp;s=512&amp;wm=false&amp;app=MPK&amp;tag=iid~9dca1e488f3140669f4f463e96e6f7cf!rsn~0!cid~1451d39b576e46c18b4a95f917248999!orgId~124748!qt~uz1avGkJTCeF!orgNm~Five%20University%20Consortium!role~Preview!mt~photo!fmt~JPEG%20Baseline",
+            "url": "https://apnews.com/article/us-fans-world-cup-soccer-popularity-c2cc4cae618d15d21ae9bd1d6746e9f8"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "slug": "poprox-tech",
+    "title": "Your POPROX Briefing",
+    "edition_label": "Saturday Edition · June 21, 2026",
+    "theme": "Personalized general news (technology & sports emphasis)",
+    "intro": "Your personalized roundup for today.",
+    "sections": [
+      {
+        "name": "Your Top Stories",
+        "articles": [
+          {
+            "label": "Artificial intelligence",
+            "headline": "Anthropic says it has taken its latest AI models offline to comply with new export controls",
+            "summary": "AI giant Anthropic says it has taken its latest artificial intelligence models, known as Fable 5 and Mythos 5, offline to comply with a directive from the Trump administration to prevent their use by foreign nationals",
+            "image": "https://mapi.associatedpress.com/v2/items/aa010c3e5a7c478b8266003749c6bf90.0/preview/preview.jpg?nfe=true&amp;s=512&amp;wm=false&amp;app=MPK&amp;tag=iid~aa010c3e5a7c478b8266003749c6bf90!rsn~0!cid~f2cc6c391dab46318848f680c939b144!orgId~124748!qt~uz1avGkJTCeF!orgNm~Five%20University%20Consortium!role~Preview!mt~photo!fmt~JPEG%20Baseline",
+            "url": "https://apnews.com/article/anthropic-artificial-intelligence-trump-fable-mythos-d9cc7df5c02e93837d0f0bfb24d5cfd2"
+          },
+          {
+            "label": "Business",
+            "headline": "States are rolling out red carpets for data centers. But some lawmakers are pushing back",
+            "summary": "The explosive growth of the data centers needed to power America’s fast-rising demand for artificial intelligence and cloud computing has spurred states to dangle incentives in hopes of landing an economic bonanza.",
+            "image": "https://mapi.associatedpress.com/v2/items/80806f01804649338678f4e601010fe4.1/preview/preview.jpg",
+            "url": ""
+          },
+          {
+            "label": "Iran war",
+            "headline": "What we know about a possible deal to end the Iran war",
+            "summary": "The United States and Iran appear close to a deal to end their war and reopen the Strait of Hormuz",
+            "image": "https://mapi.associatedpress.com/v2/items/b2ba78cc2b6e4e0e906a8fa75598b44f.1/preview/preview.jpg?nfe=true&amp;s=512&amp;wm=false&amp;app=MPK&amp;tag=iid~b2ba78cc2b6e4e0e906a8fa75598b44f!rsn~1!cid~f82d3e8d6a394dbaaf0c67c9ea2bd523!orgId~124748!qt~uz1avGkJTCeF!orgNm~Five%20University%20Consortium!role~Preview!mt~photo!fmt~JPEG%20Baseline",
+            "url": "https://apnews.com/article/iran-war-us-pakistan-ceasefire-what-to-know-949710df39e3f1033cbb6beda3955814"
+          }
+        ]
+      },
+      {
+        "name": "Technology",
+        "articles": [
+          {
+            "label": "Information technology",
+            "headline": "Anthropic announces 'Claude Corps' to teach nonprofits to use AI more effectively",
+            "summary": "Anthropic will donate $150 million to launch a fellowship program called Claude Corps that plans to help nonprofits effectively use artificial intelligence by embedding 1,000 trained fellows in various organizations for a year",
+            "image": "https://mapi.associatedpress.com/v2/items/ff39c674a03442af82479e1eda4582d7.0/preview/preview.jpg?nfe=true&amp;s=512&amp;wm=false&amp;app=MPK&amp;tag=iid~ff39c674a03442af82479e1eda4582d7!rsn~0!cid~418b91c1d54542c39f4c3c207e041a14!orgId~124748!qt~x-6O_Gk6LeF!orgNm~Five%20University%20Consortium!role~Preview!mt~photo!fmt~JPEG%20Baseline",
+            "url": "https://apnews.com/article/anthropic-ai-claude-corps-daniela-amodei-b1c130a08417d13e1256f8982d233b0e"
+          },
+          {
+            "label": "Spacecraft",
+            "headline": "As UFOs go mainstream, the jury is out on what the existence of alien life might mean for religion",
+            "summary": "Steven Spielberg's new film “Disclosure Day” explores extraterrestrial life and its impact on religion",
+            "image": "https://mapi.associatedpress.com/v2/items/7fa1b4fadb9447e6bdcab9e0020f7bd7.0/preview/preview.jpg?nfe=true&amp;s=512&amp;wm=false&amp;app=MPK&amp;tag=iid~7fa1b4fadb9447e6bdcab9e0020f7bd7!rsn~0!cid~1dca755aaa9c4e3c92280e10e7614db2!orgId~124748!qt~uz1avGkJTCeF!orgNm~Five%20University%20Consortium!role~Preview!mt~photo!fmt~JPEG%20Baseline",
+            "url": "https://apnews.com/article/ufo-religion-aliens-demons-disclosure-day-500c2280dbdbcedfa09f3d2aa298f338"
+          },
+          {
+            "label": "Business",
+            "headline": "Musk put a spotlight on federal spending, but cut less than he wanted",
+            "summary": "Billionaire Elon Musk is expected to fall far short of even his most modest goal of shaving $150 billion from the federal deficit.",
+            "image": "https://mapi.associatedpress.com/v2/items/d3a9ff3d9b444370ae43fba24eb47d6d.0/preview/preview.jpg",
+            "url": ""
+          }
+        ]
+      },
+      {
+        "name": "Sports",
+        "articles": [
+          {
+            "label": "Soccer",
+            "headline": "A dream day for New York fans with Knicks on the road to clinch and Brazil vs. Morocco in World Cup",
+            "summary": "If there’s a saving grace from the bedlam that is about to ensue in New York City on Saturday, with the Knicks on the verge of a championship and Brazil taking on Morocco in the World Cup, it is that Game 5 of the NBA Finals is on the road",
+            "image": "https://mapi.associatedpress.com/v2/items/3646e6dfed7e445b99dd99564b4ef001.1/preview/preview.jpg?nfe=true&amp;s=512&amp;wm=false&amp;app=MPK&amp;tag=iid~3646e6dfed7e445b99dd99564b4ef001!rsn~1!cid~80e38cf7262743bfbfa54b25d93a420a!orgId~124748!qt~uz1avGkJTCeF!orgNm~Five%20University%20Consortium!role~Preview!mt~photo!fmt~JPEG%20Baseline",
+            "url": "https://apnews.com/article/knicks-world-cup-madison-square-garden-fans-3145ad0bf46f0fd17763272a51a5632b"
+          },
+          {
+            "label": "Soccer",
+            "headline": "Roaring crowds in stars and stripes show up for the US team, and soccer's moment in their country",
+            "summary": "Roaring crowds wearing stars and stripes came out to support the U.S. men's soccer team in their World Cup opener against Paraguay",
+            "image": "https://mapi.associatedpress.com/v2/items/9dca1e488f3140669f4f463e96e6f7cf.0/preview/preview.jpg?nfe=true&amp;s=512&amp;wm=false&amp;app=MPK&amp;tag=iid~9dca1e488f3140669f4f463e96e6f7cf!rsn~0!cid~1451d39b576e46c18b4a95f917248999!orgId~124748!qt~uz1avGkJTCeF!orgNm~Five%20University%20Consortium!role~Preview!mt~photo!fmt~JPEG%20Baseline",
+            "url": "https://apnews.com/article/us-fans-world-cup-soccer-popularity-c2cc4cae618d15d21ae9bd1d6746e9f8"
+          },
+          {
+            "label": "Sports",
+            "headline": "California track-and-field final enters spotlight for rule change after trans athlete's success",
+            "summary": "The California high school track-and-field championship has kicked off to a relatively quiet atmosphere.",
+            "image": "https://mapi.associatedpress.com/v2/items/fd1d9206e26a4e39805fe4d89c02d78c.0/preview/preview.jpg",
+            "url": ""
+          }
+        ]
+      },
+      {
+        "name": "World News",
+        "articles": [
+          {
+            "label": "Iran war",
+            "headline": "Iranians endure war fatigue and soaring prices as conflict deepens domestic woes",
+            "summary": "Iranians are living between confusion and exhaustion as the country and its economy are squeezed between war and multiplying crises at home",
+            "image": "https://mapi.associatedpress.com/v2/items/cd2c945658814b33a87a5eb4a424e077.0/preview/preview.jpg?nfe=true&amp;s=512&amp;wm=false&amp;app=MPK&amp;tag=iid~cd2c945658814b33a87a5eb4a424e077!rsn~0!cid~dd24553f23cb44c790a16d2b447351a6!orgId~124748!qt~uz1avGkJTCeF!orgNm~Five%20University%20Consortium!role~Preview!mt~photo!fmt~JPEG%20Baseline",
+            "url": "https://apnews.com/article/us-iran-war-tehran-fear-economy-inflation-d19c7189a3da16cd111fbad7c68f0c20"
+          },
+          {
+            "label": "Military and defense",
+            "headline": "Lebanese army withdraws from southern village after Israeli troops advance nearby",
+            "summary": "The Lebanese army has withdrawn its troops from a base in a southern village after Israeli forces advanced nearby",
+            "image": "https://mapi.associatedpress.com/v2/items/4792b703dd0f4335bb34e10ef30d83c5.0/preview/preview.jpg?nfe=true&amp;s=512&amp;wm=false&amp;app=MPK&amp;tag=iid~4792b703dd0f4335bb34e10ef30d83c5!rsn~0!cid~eb18e04e76f244a3ad3a98c4f23d3c14!orgId~124748!qt~uz1avGkJTCeF!orgNm~Five%20University%20Consortium!role~Preview!mt~photo!fmt~JPEG%20Baseline",
+            "url": "https://apnews.com/article/lebanon-israel-iran-hezbollah-7423a633aad2c74378e3024110af0a09"
+          },
+          {
+            "label": "Sanctions and embargoes",
+            "headline": "Díaz-Canel announces economic reforms to attract investment and involve Cubans abroad",
+            "summary": "Cuban President Miguel Díaz-Canel has announced economic reforms to attract investment and involve Cubans abroad in the economy",
+            "image": "https://mapi.associatedpress.com/v2/items/4ae5750e2a584777867761574c2137ca.0/preview/preview.jpg?nfe=true&amp;s=512&amp;wm=false&amp;app=MPK&amp;tag=iid~4ae5750e2a584777867761574c2137ca!rsn~0!cid~e15885a21c984c249edea0a15804fd22!orgId~124748!qt~uz1avGkJTCeF!orgNm~Five%20University%20Consortium!role~Preview!mt~photo!fmt~JPEG%20Baseline",
+            "url": "https://apnews.com/article/cuba-colombia-aid-ship-embargo-cbffe7cf4f435569e1a6d7e42a2bb5fd"
+          }
+        ]
+      },
+      {
+        "name": "In Other News",
+        "articles": [
+          {
+            "label": "U.S. News",
+            "headline": "Takeaways from AP’s report on how federal public health cuts are affecting communities across the US",
+            "summary": "Americans are losing an array of people and programs dedicated to keeping them healthy.",
+            "image": "https://mapi.associatedpress.com/v2/items/3b70fa09b9db4459b0322b866922af69.1/preview/preview.jpg",
+            "url": ""
+          },
+          {
+            "label": "Health",
+            "headline": "US measles cases rise slightly as Colorado reports a new outbreak",
+            "summary": "The U.S. is up to 1,088 confirmed measles cases.",
+            "image": "https://mapi.associatedpress.com/v2/items/5a1dd41d649144a382083adc51106abd.0/preview/preview.jpg",
+            "url": ""
+          },
+          {
+            "label": "World News",
+            "headline": "Paris probes antisemitic vandalism targeting synagogues and a Holocaust memorial",
+            "summary": "Authorities in Paris have launched an investigation after several Jewish sites across the capital were defaced with green paint overnight.",
+            "image": "https://mapi.associatedpress.com/v2/items/37e762d2d4714bf7a630212f974de8f4.0/preview/preview.jpg",
+            "url": ""
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,31 @@
+# Python
+backend/.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+.coverage
+htmlcov/
+backend/staticfiles/
+
+# Node / Next
+web/node_modules/
+web/.next/
+web/out/
+web/coverage/
+*.tsbuildinfo
+
+# Env
+.env
+backend/.env
+web/.env
+web/.env.local
+
+# OS
+.DS_Store
+
+# Participant data / working docs (do not publish)
+*.csv
+backend/apps/study/seed_data/collected_samples.csv
+*.docx
+!IRB/*.docx
+!Eliciting_Actionable_Recommendation_Feedback_Proposal (11).docx

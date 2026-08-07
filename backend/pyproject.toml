@@ -1,0 +1,9 @@
+[project]
+name = "earn-backend"
+version = "1.0.0"
+description = "EARN study platform backend (Django + DRF)."
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "project_backend.settings.dev"
+python_files = ["tests.py", "test_*.py", "*_tests.py"]

@@ -1,0 +1,58 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-earn}
+      POSTGRES_USER: ${POSTGRES_USER:-earn}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-db-password}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Loopback-only: the host-networked backend connects through this port.
+    ports:
+      - "127.0.0.1:${DB_PORT:-5436}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-earn}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    environment:
+      DJANGO_SETTINGS_MODULE: project_backend.settings.prod
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-only-insecure-secret-key-change-me}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-0}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
+      DATABASE_URL: postgres://${POSTGRES_USER:-earn}:${POSTGRES_PASSWORD:-change-me-db-password}@127.0.0.1:${DB_PORT:-5436}/${POSTGRES_DB:-earn}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-http://localhost:3000}
+      CORS_ALLOW_ALL_ORIGINS: ${CORS_ALLOW_ALL_ORIGINS:-0}
+      RESEARCHER_USERNAME: ${RESEARCHER_USERNAME:-researcher}
+      RESEARCHER_PASSWORD: ${RESEARCHER_PASSWORD:-change-me-researcher-password}
+      LOCAL_LLM_BASE_URL: ${LOCAL_LLM_BASE_URL:-http://127.0.0.1:8123/v1}
+      LOCAL_LLM_MODEL: ${LOCAL_LLM_MODEL:-openai/gpt-oss-120b}
+      LOCAL_LLM_API_KEY: ${LOCAL_LLM_API_KEY:-}
+      LOCAL_LLM_TIMEOUT_SECONDS: ${LOCAL_LLM_TIMEOUT_SECONDS:-45}
+      BACKEND_PORT: ${BACKEND_PORT:-8001}
+      STUDY_ENABLED_CONDITIONS: ${STUDY_ENABLED_CONDITIONS:-1,2,3}
+    # Required on this Linux server so the container can reach the model bound
+    # to the host's port 8123 without a firewall-blocked bridge hairpin.
+    network_mode: host
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./web
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8001}
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8001}
+    depends_on:
+      - backend
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+
+volumes:
+  pgdata:
