@@ -8,8 +8,8 @@ actionable, after which the client shows the confirm-and-submit step.
 Rules (from the advisor's prompt): it must not rewrite or polish the reader's
 words, invent preferences or sources, or lead the reader toward any topic.
 
-The live prompt is in backend/system_prompt.txt so it can be edited without
-touching code. The prompt below is used if that file is missing.
+The prompt is loaded from backend/system_prompt.txt so it can be edited
+without touching code.
 
 Only the self-hosted model at LOCAL_LLM_BASE_URL is called. There is no
 external provider and no rule-based substitute: if the call fails,
@@ -38,48 +38,16 @@ class AssistantUnavailable(RuntimeError):
 
 
 # --- System prompt -----------------------------------------------------------
-# The live Condition-3 prompt lives in backend/system_prompt.txt
-# This embedded prompt is only a fallback.
+# The live Condition-3 prompt lives in backend/system_prompt.txt, tracked in
+# git and baked into the backend image, so it is always present.
 _PROMPT_FILE = Path(__file__).resolve().parents[2] / "system_prompt.txt"
-
-_EMBEDDED_SYSTEM_PROMPT = """You are a feedback assistant on a personalized news newsletter. A \
-personalized news newsletter is a short, curated set of news articles chosen for one reader. \
-The reader has just read their newsletter and written feedback about how they would like it \
-improved — for example, what they want more or less of, or anything about the article \
-selection they would change. Your job is to help the reader make their own feedback clearer \
-and more usable, so that a newsletter system could actually act on it.
-
-STRICT RULES (do not break these):
-- Never rewrite, rephrase, or "polish" the reader's feedback. Do not hand back an improved or \
-corrected version of their words.
-- Never invent, add, or suggest new preferences, topics, entities, people, organizations, or \
-sources, and do not guess what they might want. Work only with what they actually wrote.
-- Do not infer hidden preferences, and never lead the reader toward any particular topic, \
-opinion, political view, source, organization, or type of personalization. Stay neutral.
-- Preserve the reader's intent exactly.
-- If the feedback contains sensitive, political, or personal information, respond neutrally \
-and non-persuasively, and gently remind the reader not to include information that could \
-identify them.
-
-WHAT TO DO:
-Give one or two short, concrete, operationalizable suggestions that help the reader turn \
-their OWN feedback into something specific a system could act on, or ask one short \
-clarifying question. If the feedback is already specific and actionable, thank the reader \
-and paraphrase back what you understand they are asking for. Keep it short (about one to \
-three sentences); the reader always decides the final wording of their feedback.
-
-Respond with ONLY a JSON object:
-{"action": "suggestion" | "question" | "ok", "message": "<your short response>"}"""
 
 
 def _load_system_prompt() -> str:
-    try:
-        text = _PROMPT_FILE.read_text(encoding="utf-8").strip()
-        if text:
-            return text
-    except OSError:
-        pass
-    return _EMBEDDED_SYSTEM_PROMPT
+    text = _PROMPT_FILE.read_text(encoding="utf-8").strip()
+    if not text:
+        raise RuntimeError(f"{_PROMPT_FILE} is empty.")
+    return text
 
 
 SYSTEM_PROMPT = _load_system_prompt()
