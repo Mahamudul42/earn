@@ -115,6 +115,12 @@ def test_assistant_raises_when_model_unreachable():
         compose_final_feedback([{"role": "user", "content": "make it better"}])
 
 
+def test_assistant_rejects_non_http_model_url(settings):
+    settings.LOCAL_LLM_BASE_URL = "file:///tmp/model"
+    with pytest.raises(AssistantUnavailable, match=r"must be an HTTP\(S\) URL"):
+        assistant_module._chat_local([], temperature=0, max_tokens=1)
+
+
 def test_assistant_replays_prior_turns_in_json_format(fake_llm):
     history = [
         {"role": "user", "content": "make it better"},

@@ -27,5 +27,3 @@ web/.env.local
 *.csv
 backend/apps/study/seed_data/collected_samples.csv
 *.docx
-!IRB/*.docx
-!Eliciting_Actionable_Recommendation_Feedback_Proposal (11).docx

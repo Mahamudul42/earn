@@ -2,9 +2,8 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    """Advisor-meeting update: reduce the survey to four scale-estimation items
-    (effort, express, reflect, understand) and broaden the assistant actions to
-    include 'suggestion'."""
+    """Reduce the survey to four scale-estimation items and add the
+    ``suggestion`` assistant action."""
 
     dependencies = [
         ("study", "0003_compact_survey"),

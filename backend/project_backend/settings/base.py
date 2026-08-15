@@ -22,9 +22,7 @@ env = environ.Env(
 # Read a .env file if present (local dev convenience).
 environ.Env.read_env(BASE_DIR / ".env")
 
-SECRET_KEY = env(
-    "DJANGO_SECRET_KEY", default="dev-only-insecure-secret-key-change-me"
-)
+SECRET_KEY = env("DJANGO_SECRET_KEY")
 DEBUG = env("DJANGO_DEBUG")
 ALLOWED_HOSTS = env("DJANGO_ALLOWED_HOSTS")
 
@@ -122,9 +120,6 @@ SPECTACULAR_SETTINGS = {
 CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
 
 # --- Interactive Feedback Assistant (Condition 3) --------------------------
-# The study runtime is intentionally local-only. No external provider settings
-# are loaded and there is no external fallback path in apps.study.assistant.
-# Keep the base URL blank outside Docker/tests when no live call is desired.
 LOCAL_LLM_BASE_URL = env("LOCAL_LLM_BASE_URL", default="")
 LOCAL_LLM_MODEL = env("LOCAL_LLM_MODEL", default="openai/gpt-oss-120b")
 # Optional: the current local endpoint needs no key, so this is blank by default.
@@ -133,8 +128,6 @@ LOCAL_LLM_TIMEOUT_SECONDS = env.int("LOCAL_LLM_TIMEOUT_SECONDS", default=45)
 
 # --- Study conditions ------------------------------------------------------
 # Which elicitation conditions are active in normal (balanced) assignment.
-# Condition 3 (the LLM-assisted guidance condition) is optional/configurable:
-# set STUDY_ENABLED_CONDITIONS=1,2 to run a Condition 1 vs 2 study without it.
 # The forced-condition preview (?condition=N) still works for any condition.
 STUDY_ENABLED_CONDITIONS = [
     int(c) for c in env.list("STUDY_ENABLED_CONDITIONS", default=["1", "2", "3"])

@@ -3,7 +3,7 @@
 Kept on the backend so the exact wording is versioned with the study and can be
 adjusted after the pilot without changing the frontend.
 
-Design (per advisor guidance):
+Design:
 - The main prompt is neutral and open-ended, not topic-centric. Personalization
   covers more than topics: balance, locality, people and organizations, section
   mix, recency, variety and repetition.

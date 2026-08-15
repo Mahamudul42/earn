@@ -9,7 +9,7 @@ export interface Article {
   url?: string;
 }
 
-export interface NewsletterSection {
+interface NewsletterSection {
   name: string;
   articles: Article[];
 }
@@ -64,7 +64,7 @@ export interface SurveyAnswers {
 }
 
 // --- Researcher ------------------------------------------------------------
-export interface Rating {
+interface Rating {
   id: number;
   rater_username: string;
   target_specificity: number;

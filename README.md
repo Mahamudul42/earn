@@ -7,18 +7,18 @@ with a five-dimension actionability rubric and export the data for analysis.
 
 It implements the study described in the proposal "EARN: Eliciting
 Actionable Recommendation Feedback from Users for News Personalization."
-It only collects and measures feedback — it doesn't apply that feedback to
+It only collects and measures feedback -- it doesn't apply that feedback to
 change future newsletters (that's future work).
 
 ## What it does
 
-Participant flow, no account needed, just a private link:
+Participant flow, no account needed, just the study link:
 
-1. Consent — short statement, reminder not to include sensitive info.
-2. Read — one fixed-format newsletter (5 sections x 3 articles each).
-3. Feedback — depends on condition, see below.
-4. Survey — four post-task Likert items on effort and feedback quality.
-5. Done — a completion code, works as a Prolific completion code.
+1. Consent -- short statement, reminder not to include sensitive info.
+2. Read -- one fixed-format newsletter (5 sections * 3 articles each).
+3. Feedback -- depends on condition, see below.
+4. Survey -- four post-task Likert items on effort and feedback quality.
+5. Done -- a completion code, works as a Movielens/Prolific completion code.
 
 Three conditions, randomly assigned and balanced across participants:
 
@@ -26,7 +26,7 @@ Three conditions, randomly assigned and balanced across participants:
 |---|-----------|------------------------|
 | 1 | Just Ask | The prompt, no guidance. |
 | 2 | Examples + Instructions | Prompt plus a neutral instruction, guidance questions, and one example. |
-| 3 | Interactive Feedback Assistant | Short back-and-forth with an assistant to clarify the feedback. Participant reviews and submits the final version — the assistant never rewrites it for them. |
+| 3 | Interactive Feedback Assistant | Short back-and-forth with an assistant to clarify the feedback. Participant reviews and submits the final version -- the assistant never rewrites it for them. |
 
 Condition 3 talks to a self-hosted, OpenAI-compatible local LLM (default
 `openai/gpt-oss-120b`). No external provider and no fallback: if the local
@@ -42,8 +42,6 @@ Researcher dashboard (`/researcher`):
 - CSV export with feedback, the condition-3 transcript, survey items, and
   rating means.
 
-Statistical analysis isn't part of the app. That's done separately in
-R/Python from the CSV export.
 
 ## Tech stack
 
@@ -65,8 +63,6 @@ earn/
 │   └── Dockerfile
 ├── web/                     # Next.js
 │   └── src/{app,components,lib}
-├── documentation/           # codebase documentation (Bangla)
-├── IRB/                     # IRB protocol documents + project proposal
 ├── docker-compose.yml
 └── .env.example
 ```
@@ -76,22 +72,24 @@ earn/
 ## Quick start
 
 Requires Docker + Docker Compose, plus a self-hosted OpenAI-compatible LLM
-reachable at `LOCAL_LLM_BASE_URL` if you want Condition 3 to work.
+reachable at `LOCAL_LLM_BASE_URL` for Condition 3 to work.
 
 ```bash
 ./run.sh up         # build + start everything (web, backend, db)
 ```
 
-First run creates `.env`, builds the images, migrates, seeds 3 newsletters
-plus a researcher account, and waits for the backend to be healthy.
+Before the first run, copy `.env.example` to `.env` and set
+`DJANGO_SECRET_KEY`, `POSTGRES_PASSWORD`, and `RESEARCHER_PASSWORD`. Then the
+script builds the images, migrates, seeds 3 newsletters plus a researcher
+account, and waits for the backend to be healthy.
 
 - Participant site: <http://localhost:3000>
 - Researcher dashboard: <http://localhost:3000/researcher/login>
 - Backend API + docs: <http://localhost:8001/api/docs/>
 - Researcher login: `RESEARCHER_USERNAME` / `RESEARCHER_PASSWORD` in `.env`.
 
-Change `DJANGO_SECRET_KEY`, `POSTGRES_PASSWORD`, and `RESEARCHER_PASSWORD`
-before deploying anywhere real.
+The three credential variables above are required; the application does not
+provide default passwords or a default Django secret key.
 
 ### `./run.sh` commands
 
@@ -111,14 +109,12 @@ before deploying anywhere real.
 | `shell` | Shell into the backend container |
 
 Source is copied into the images, no volume mount. After changing backend
-or frontend code (or `system_prompt.txt`) you need to rebuild:
-`docker compose up -d --build backend` (or `web`). Restarting alone still
-runs the old code.
+or frontend code (or `system_prompt.txt`) we need to rebuild:
+`docker compose up -d --build backend` (or `web`). 
 
 ### Ports
 
-Defaults: web `3000`, backend `8001`, loopback-only Postgres `5436`. The
-backend uses host networking so it can reach a local LLM at
+Defaults: web `3000`, backend `8001`, loopback-only Postgres `5436`. A local LLM at
 `127.0.0.1:8123`. Change ports in `.env` (`WEB_PORT`, `BACKEND_PORT`,
 `DB_PORT`, keep `NEXT_PUBLIC_API_BASE_URL` matching `BACKEND_PORT`), then
 `./run.sh rebuild`.
@@ -138,15 +134,12 @@ Five models:
 
 | Model | Purpose |
 |-------|---------|
-| `Newsletter` | Fixed 5x3 stimulus, sections/articles stored as JSON |
+| `Newsletter` | Fixed 5*3 stimulus, sections/articles stored as JSON |
 | `Participant` | One session: condition, newsletter, status, study phase. Identified by an unguessable `public_id` (UUID) that doubles as the completion code |
 | `FeedbackResponse` | 1:1 with participant — `initial_text`, `final_text`, the Condition-3 `chat_log`, and the consolidated `final_draft` |
 | `SurveyResponse` | 1:1 with participant, four 1-5 items |
 | `ActionabilityRating` | 1:N per response, five 0-2 rubric dimensions plus target level, one row per (response, rater) |
 
-`ActionabilityRating.total` is computed, not stored. Newsletters can't be
-deleted while a participant references them. Deleting a rater account
-nulls out `rater` on their ratings but keeps the ratings themselves.
 
 ## Collecting data with participants
 
@@ -154,20 +147,20 @@ Send each participant to the site root; they get a fresh randomized
 assignment:
 
 ```
-https://your-host/?source=prolific&ref=PROLIFIC_PID
+https://our-host/?source=movielens&ref=PID
 ```
 
-- `source` → `recruitment_source` (`direct` | `movielens` | `prolific` | `other`)
-- `ref` → `external_ref`, e.g. the Prolific participant id
+- `source` > `recruitment_source` (`direct` | `movielens` | `prolific` | `other`)
+- `ref` > `external_ref`, e.g. the Prolific participant id
 - The completion code shown at the end is the participant's `public_id`
 
 Assignment is balanced: each new participant fills the least-populated
-(condition x newsletter) cell, so the cells stay even as enrollment grows.
+(condition * newsletter) cell, so the cells stay even as enrollment grows.
 
 ### Study phases
 
 `STUDY_PHASE` defaults to `pilot`. URLs like `?condition=3` are stored as
-`preview` so demo sessions don't mix into real data. Set
+`preview` so demo sessions don't mix into real data. Need to set
 `STUDY_PHASE=main` in `.env` and restart before real recruitment. Balance
 is calculated per phase.
 
@@ -175,7 +168,7 @@ is calculated per phase.
 
 The primary researcher account is a study manager. From
 `/researcher/raters` they can create, deactivate, and reset credentials
-for any number of raters — separate username per person, never share an
+for any number of raters -- separate username per person, never share an
 account, since every score keeps that rater's identity attached.
 
 Raters sign in at `/researcher/login` and go straight to the blind rating
@@ -245,14 +238,12 @@ See `.env.example` (root, for compose), `backend/.env.example`, and
 
 ## Notes
 
-The three newsletters are rendered in the POPROX style (teal masthead,
-dark-blue section bars, thumbnail + label + serif headline + summary),
+The three newsletters are rendered in the POPROX style,
 matching <https://github.com/Mahamudul42/poprox_newsletter>. Each is the
-fixed 5x3 format, populated with real Associated Press articles from that
+fixed 5*3 format, populated with real Associated Press articles from that
 template; the three editions lean toward different topics (world,
 politics, tech/sports) so feedback doesn't cluster on one subject. Data
 lives in `backend/apps/study/seed_data/newsletters.json`.
 
 Feedback is written on the same page as the newsletter, right underneath
-it — same as POPROX's own end-of-newsletter feedback block. No production
-newsletter service is required; the study is self-contained.
+it — same as POPROX's own end-of-newsletter feedback block. 

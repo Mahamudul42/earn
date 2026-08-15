@@ -26,7 +26,6 @@ from .models import (
     ActionabilityRating,
     Condition,
     FeedbackResponse,
-    Newsletter,
     Participant,
     StudyPhase,
     SurveyResponse,

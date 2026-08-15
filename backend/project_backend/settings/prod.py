@@ -5,10 +5,7 @@ from .base import env
 DEBUG = False
 
 DATABASES = {
-    "default": env.db(
-        "DATABASE_URL",
-        default="postgres://earn:change-me-db-password@db:5432/earn",
-    )
+    "default": env.db("DATABASE_URL")
 }
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

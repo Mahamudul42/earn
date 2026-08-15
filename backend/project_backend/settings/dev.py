@@ -5,10 +5,7 @@ from .base import env
 DEBUG = True
 
 DATABASES = {
-    "default": env.db(
-        "DATABASE_URL",
-        default="postgres://earn:change-me-db-password@127.0.0.1:5436/earn",
-    )
+    "default": env.db("DATABASE_URL")
 }
 
 CORS_ALLOW_ALL_ORIGINS = True

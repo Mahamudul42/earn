@@ -43,7 +43,8 @@ fi
 # --- Ensure .env exists, then load it for port display ---------------------
 if [ ! -f .env ]; then
   cp .env.example .env
-  warn "Created .env from .env.example (review ports, credentials, and LOCAL_LLM_BASE_URL)."
+  err "Created .env from .env.example. Set DJANGO_SECRET_KEY, POSTGRES_PASSWORD, and RESEARCHER_PASSWORD, then run this command again."
+  exit 1
 fi
 # shellcheck disable=SC1091
 set -a; . ./.env; set +a

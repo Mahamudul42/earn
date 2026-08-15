@@ -5,7 +5,7 @@ feedback clearer and more specific. Each round it asks a clarifying question,
 gives a short suggestion, or returns action "ok" once the feedback is
 actionable, after which the client shows the confirm-and-submit step.
 
-Rules (from the advisor's prompt): it must not rewrite or polish the reader's
+Rules: it must not rewrite or polish the reader's
 words, invent preferences or sources, or lead the reader toward any topic.
 
 The prompt is loaded from backend/system_prompt.txt so it can be edited
@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import json
 import re
+import urllib.parse
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -38,8 +40,7 @@ class AssistantUnavailable(RuntimeError):
 
 
 # --- System prompt -----------------------------------------------------------
-# The live Condition-3 prompt lives in backend/system_prompt.txt, tracked in
-# git and baked into the backend image, so it is always present.
+# The live Condition-3 prompt lives in backend/system_prompt.txt.
 _PROMPT_FILE = Path(__file__).resolve().parents[2] / "system_prompt.txt"
 
 
@@ -120,9 +121,11 @@ def _chat_local(messages, temperature: float, max_tokens: int) -> str:
     conf = _local_conf()
     if not conf["base"]:
         raise AssistantUnavailable("LOCAL_LLM_BASE_URL is not configured.")
-    import urllib.request
 
     base = conf["base"].rstrip("/")
+    parsed_base = urllib.parse.urlparse(base)
+    if parsed_base.scheme not in {"http", "https"} or not parsed_base.netloc:
+        raise AssistantUnavailable("LOCAL_LLM_BASE_URL must be an HTTP(S) URL.")
     body = json.dumps(
         {
             "model": conf["model"],
@@ -141,7 +144,9 @@ def _chat_local(messages, temperature: float, max_tokens: int) -> str:
         headers["Authorization"] = f"Bearer {conf['key']}"
     req = urllib.request.Request(f"{base}/chat/completions", data=body, headers=headers)
     try:
-        with urllib.request.urlopen(req, timeout=conf["timeout"]) as resp:
+        with urllib.request.urlopen(  # nosec B310
+            req, timeout=conf["timeout"]
+        ) as resp:
             data = json.loads(resp.read())
         content = data["choices"][0]["message"]["content"]
     except AssistantUnavailable:
@@ -263,7 +268,7 @@ def get_assistant_reply(history, newsletter=None) -> AssistantResult:
 # The same SYSTEM_PROMPT is prepended so the summary follows the same rules the
 # chat did. FINALIZE_PROMPT only replaces the JSON output format and the
 # per-turn task; the rest still applies.
-FINALIZE_PROMPT = """CONSOLIDATION STEP — this is a different task from the round-by-round \
+FINALIZE_PROMPT = """CONSOLIDATION STEP -- this is a different task from the round-by-round \
 conversation described above.
 
 The conversation with the reader is now finished. For THIS step you are NOT asking a \
@@ -275,7 +280,7 @@ intent, and handle any sensitive or identifying information carefully).
 
 You will receive the conversation between a newsletter READER and the feedback ASSISTANT. \
 Write the reader's complete final feedback as the reader would submit it themselves: a \
-single short statement (one to four sentences) in the reader's own first-person voice.
+single short statement (one to five sentences) in the reader's own first-person voice.
 
 Rules for the consolidated feedback:
 - Include EVERY preference the reader expressed across ALL of their messages, with the \

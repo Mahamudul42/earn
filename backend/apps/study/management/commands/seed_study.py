@@ -19,7 +19,7 @@ from pathlib import Path
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 
 from apps.users.roles import HUMAN_RATER_GROUP
 
@@ -40,7 +40,7 @@ class Command(BaseCommand):
             "--reset", action="store_true", help="Delete existing newsletters first."
         )
 
-    def handle(self, *args, **options):
+    def handle(self, *_args, **options):
         if options["reset"]:
             Newsletter.objects.all().delete()
             self.stdout.write(self.style.WARNING("Deleted existing newsletters."))
@@ -66,9 +66,9 @@ class Command(BaseCommand):
 
         # Researcher account (staff) for the dashboard / rating tool.
         username = os.environ.get("RESEARCHER_USERNAME", "researcher")
-        password = os.environ.get(
-            "RESEARCHER_PASSWORD", "change-me-researcher-password"
-        )
+        password = os.environ.get("RESEARCHER_PASSWORD")
+        if not password:
+            raise CommandError("RESEARCHER_PASSWORD must be set")
         user, _ = User.objects.get_or_create(
             username=username,
             defaults={"email": "researcher@example.com", "is_staff": True},
