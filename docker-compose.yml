@@ -1,22 +1,3 @@
-x-backend-environment: &backend-environment
-  DJANGO_SETTINGS_MODULE: project_backend.settings.prod
-  DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?DJANGO_SECRET_KEY must be set in .env}
-  DJANGO_DEBUG: ${DJANGO_DEBUG:-0}
-  DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
-  DATABASE_URL: postgres://${POSTGRES_USER:-earn}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}@127.0.0.1:${DB_PORT:-5436}/${POSTGRES_DB:-earn}
-  CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
-  CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-http://localhost:3000}
-  CORS_ALLOW_ALL_ORIGINS: ${CORS_ALLOW_ALL_ORIGINS:-0}
-  RESEARCHER_USERNAME: ${RESEARCHER_USERNAME:-researcher}
-  RESEARCHER_PASSWORD: ${RESEARCHER_PASSWORD:?RESEARCHER_PASSWORD must be set in .env}
-  LOCAL_LLM_BASE_URL: ${LOCAL_LLM_BASE_URL:-http://127.0.0.1:8123/v1}
-  LOCAL_LLM_MODEL: ${LOCAL_LLM_MODEL:-openai/gpt-oss-120b}
-  LOCAL_LLM_API_KEY: ${LOCAL_LLM_API_KEY:-}
-  LOCAL_LLM_TIMEOUT_SECONDS: ${LOCAL_LLM_TIMEOUT_SECONDS:-45}
-  BACKEND_PORT: ${BACKEND_PORT:-8001}
-  STUDY_ENABLED_CONDITIONS: ${STUDY_ENABLED_CONDITIONS:-1,2,3}
-  STUDY_PHASE: ${STUDY_PHASE:-pilot}
-
 services:
   db:
     image: postgres:16
@@ -26,7 +7,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
     volumes:
       - pgdata:/var/lib/postgresql/data
-    # Loopback-only: the host-networked backend connects through this port.
+    # Loopback-only: the host-networked app connects through this port.
     ports:
       - "127.0.0.1:${DB_PORT:-5436}:5432"
     healthcheck:
@@ -34,34 +15,42 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
-  backend:
-    build: ./backend
-    environment: *backend-environment
+  app:
+    build: .
+    environment:
+      DJANGO_SETTINGS_MODULE: project_backend.settings
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?DJANGO_SECRET_KEY must be set in .env}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-0}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      DATABASE_URL: postgres://${POSTGRES_USER:-earn}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}@127.0.0.1:${DB_PORT:-5436}/${POSTGRES_DB:-earn}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-http://localhost:3000}
+      # Same-origin in normal use; only a Next dev server on another port needs these.
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      CORS_ALLOW_ALL_ORIGINS: ${CORS_ALLOW_ALL_ORIGINS:-0}
+      RESEARCHER_USERNAME: ${RESEARCHER_USERNAME:-researcher}
+      RESEARCHER_PASSWORD: ${RESEARCHER_PASSWORD:?RESEARCHER_PASSWORD must be set in .env}
+      LOCAL_LLM_BASE_URL: ${LOCAL_LLM_BASE_URL:-http://127.0.0.1:8123/v1}
+      LOCAL_LLM_MODEL: ${LOCAL_LLM_MODEL:-openai/gpt-oss-120b}
+      LOCAL_LLM_API_KEY: ${LOCAL_LLM_API_KEY:-}
+      LOCAL_LLM_TIMEOUT_SECONDS: ${LOCAL_LLM_TIMEOUT_SECONDS:-45}
+      APP_PORT: ${APP_PORT:-3000}
+      STUDY_ENABLED_CONDITIONS: ${STUDY_ENABLED_CONDITIONS:-1,2,3}
+      STUDY_PHASE: ${STUDY_PHASE:-pilot}
     # Required on this Linux server so the container can reach the model bound
-    # to the host's port 8123 without a firewall-blocked bridge hairpin.
+    # to the host's port 8123 without a firewall-blocked bridge hairpin. Host
+    # networking publishes no ports: gunicorn binds ${APP_PORT} on the host.
     network_mode: host
     depends_on:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:${BACKEND_PORT:-8001}/api/health/', timeout=3)"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:${APP_PORT:-3000}/api/health/', timeout=3)"]
       interval: 5s
       timeout: 5s
       retries: 12
-
-  web:
-    build:
-      context: ./web
-      args:
-        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8001}
-    environment:
-      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8001}
-    depends_on:
-      backend:
-        condition: service_healthy
-    ports:
-      - "${WEB_PORT:-3000}:3000"
+    restart: unless-stopped
 
 volumes:
   pgdata:

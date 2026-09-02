@@ -13,9 +13,9 @@ import {
   saveToken,
 } from "./auth";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ||
-  "http://localhost:8000";
+// Unset (the production build) means same-origin: Django serves this bundle
+// and /api/ from the same port. A Next dev server on another port sets it.
+const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "").replace(/\/$/, "");
 
 class ApiError extends Error {
   status: number;

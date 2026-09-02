@@ -1,17 +1,22 @@
 """
-Base settings for the EARN study platform.
+Settings for the EARN study platform.
 
 EARN — Eliciting Actionable Recommendation Feedback from Users for News
 Personalization. This backend powers a between-subjects online experiment that
 shows participants a realistic personalized news newsletter and elicits
 open-ended feedback under one of three conditions.
+
+One module for every environment: the development machine and the experiment
+VM run the same image and differ only in ``.env``. ``DJANGO_DEBUG`` is the one
+switch that changes behaviour, and it stays ``0`` everywhere that collects real
+participant data.
 """
 from datetime import timedelta
 from pathlib import Path
 
 import environ
 
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 env = environ.Env(
     DJANGO_DEBUG=(bool, False),
@@ -76,6 +81,8 @@ TEMPLATES = [
 WSGI_APPLICATION = "project_backend.wsgi.application"
 ASGI_APPLICATION = "project_backend.asgi.application"
 
+DATABASES = {"default": env.db("DATABASE_URL")}
+
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
@@ -88,7 +95,7 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
@@ -116,8 +123,34 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
 }
 
+# --- Frontend --------------------------------------------------------------
+# The Docker build compiles web/ to static files and copies them here, so one
+# container serves the participant site, the researcher dashboard and the API
+# from a single port. Unset SERVE_FRONTEND to run the API on its own again.
+FRONTEND_DIST = Path(env("FRONTEND_DIST", default=str(BASE_DIR / "frontend")))
+SERVE_FRONTEND = env.bool("SERVE_FRONTEND", default=True) and FRONTEND_DIST.is_dir()
+
+if SERVE_FRONTEND:
+    MIDDLEWARE.insert(
+        MIDDLEWARE.index("django.middleware.security.SecurityMiddleware") + 1,
+        "whitenoise.middleware.WhiteNoiseMiddleware",
+    )
+    # Serve the exported bundle's own files (/_next/*, /favicon.ico, ...);
+    # anything without a file on disk falls through to apps.core.FrontendAppView.
+    WHITENOISE_ROOT = FRONTEND_DIST
+    WHITENOISE_INDEX_FILE = False
+    # Everything Next.js writes under /_next/static/ carries a content hash.
+    WHITENOISE_IMMUTABLE_FILE_TEST = r"^/_next/static/"
+
+# --- Security --------------------------------------------------------------
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
+
 # --- CORS ------------------------------------------------------------------
+# The frontend is served from the same origin as the API, so this only matters
+# when a Next dev server on another port talks to a running container.
 CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
+CORS_ALLOW_ALL_ORIGINS = env.bool("CORS_ALLOW_ALL_ORIGINS", default=False)
 
 # --- Interactive Feedback Assistant (Condition 3) --------------------------
 LOCAL_LLM_BASE_URL = env("LOCAL_LLM_BASE_URL", default="")

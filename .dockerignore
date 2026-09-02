@@ -1,0 +1,14 @@
+.git/
+.env
+**/node_modules/
+web/.next/
+web/out/
+**/__pycache__/
+**/.pytest_cache/
+backend/.venv/
+backend/staticfiles/
+backend/tests/
+.coverage
+htmlcov/
+*.csv
+*.docx

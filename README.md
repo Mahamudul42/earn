@@ -46,7 +46,13 @@ Researcher dashboard (`/researcher`):
 ## Tech stack
 
 Next.js (App Router) + React + TypeScript on the frontend, Django + DRF on
-the backend, PostgreSQL, JWT auth. Three Docker services: db, backend, web.
+the backend, PostgreSQL, JWT auth.
+
+The Docker build compiles the frontend to static files and copies them into
+the Django image, so one container serves the participant site, the researcher
+dashboard and `/api/` on a single port. Two services: `app` and `db`. The
+development machine and the experiment VM build and run the same image and
+differ only in `.env`.
 
 ## Project layout
 
@@ -57,12 +63,12 @@ earn/
 │   │   ├── core/            # health, pagination, permissions
 │   │   ├── users/           # JWT auth, researcher + rater accounts
 │   │   └── study/           # newsletters, participants, assistant, rubric, export
-│   ├── project_backend/settings/{base,dev,prod}.py
+│   ├── project_backend/settings.py
 │   ├── system_prompt.txt    # live Condition-3 assistant prompt
-│   ├── tests/               # pytest
-│   └── Dockerfile
-├── web/                     # Next.js
+│   └── tests/               # pytest
+├── web/                     # Next.js, compiled to static files at build time
 │   └── src/{app,components,lib}
+├── Dockerfile               # frontend build -> Django image
 ├── docker-compose.yml
 └── .env.example
 ```
@@ -75,7 +81,7 @@ Requires Docker + Docker Compose, plus a self-hosted OpenAI-compatible LLM
 reachable at `LOCAL_LLM_BASE_URL` for Condition 3 to work.
 
 ```bash
-./run.sh up         # build + start everything (web, backend, db)
+./run.sh up         # build + start everything (app, db)
 ```
 
 Before the first run, copy `.env.example` to `.env` and set
@@ -83,9 +89,11 @@ Before the first run, copy `.env.example` to `.env` and set
 script builds the images, migrates, seeds 3 newsletters plus a researcher
 account, and waits for the backend to be healthy.
 
+Everything is on one port:
+
 - Participant site: <http://localhost:3000>
 - Researcher dashboard: <http://localhost:3000/researcher/login>
-- Backend API + docs: <http://localhost:8001/api/docs/>
+- API + docs: <http://localhost:3000/api/docs/>
 - Researcher login: `RESEARCHER_USERNAME` / `RESEARCHER_PASSWORD` in `.env`.
 
 The three credential variables above are required; the application does not
@@ -101,30 +109,54 @@ provide default passwords or a default Django secret key.
 | `stop` / `start` | Pause / resume without removing containers |
 | `rebuild` | Rebuild images from scratch and start |
 | `reset` | **Wipes** the database volume and starts fresh (re-seeds) |
-| `logs [svc]` | Follow logs, optionally `backend` / `web` / `db` |
+| `logs [svc]` | Follow logs, optionally `app` / `db` |
 | `ps` | Show container status |
 | `seed` / `migrate` | Re-seed / migrate |
 | `superuser` | Create a Django superuser |
-| `manage <args>` | Run any `manage.py` command in the backend |
-| `shell` | Shell into the backend container |
+| `manage <args>` | Run any `manage.py` command in the app |
+| `test` | Run the backend test suite |
+| `shell` | Shell into the app container |
 
-Source is copied into the images, no volume mount. After changing backend
-or frontend code (or `system_prompt.txt`) we need to rebuild:
-`docker compose up -d --build backend` (or `web`). 
+Source is compiled into the image, no volume mount, so every change needs a
+rebuild — always the same command:
+
+```bash
+git pull && ./run.sh up
+```
+
+That covers frontend, backend, `system_prompt.txt`, migrations (they run at
+container start), dependencies and the compose file. The one thing it does not
+cover is a new **required** variable in `.env.example`: `.env` is not in git,
+so add it by hand on the target machine. Compose fails loudly if one is
+missing rather than starting up wrong. The `pgdata` volume survives rebuilds;
+only `./run.sh reset` deletes data.
+
+Rebuilds are mostly cached: a backend-only change takes a few seconds, a
+frontend change about half a minute, and a cold `--no-cache` build about five.
 
 ### Ports
 
-Defaults: web `3000`, backend `8001`, loopback-only Postgres `5436`. A local LLM at
-`127.0.0.1:8123`. Change ports in `.env` (`WEB_PORT`, `BACKEND_PORT`,
-`DB_PORT`, keep `NEXT_PUBLIC_API_BASE_URL` matching `BACKEND_PORT`), then
-`./run.sh rebuild`.
+One application port, `APP_PORT` (default `3000`), plus loopback-only
+Postgres on `DB_PORT` (default `5436`) and a local LLM the backend alone
+reaches at `127.0.0.1:8123`. Change them in `.env`, then `./run.sh up`.
 
-To reach it over SSH, forward both ports since the browser calls the API
-directly:
+Apache on the experiment VM is configured around port 3000; do not change
+`APP_PORT` there.
+
+One SSH tunnel is enough, because the browser never talks to a second port:
 
 ```bash
-ssh -N -L 3000:127.0.0.1:3000 -L 8001:127.0.0.1:8001 user@host
+ssh -N -L 3000:127.0.0.1:3000 user@host
 ```
+
+### Frontend hot reload (optional)
+
+The normal loop is a rebuild. When iterating on the UI it can be quicker to
+run the Next dev server against the container: start the stack, put
+`NEXT_PUBLIC_API_BASE_URL=http://localhost:3000` in `web/.env.local`, add
+`http://localhost:3001` to `CORS_ALLOWED_ORIGINS` in `.env`, restart the app
+and run `cd web && npm run dev -- -p 3001`. Nothing else in the project
+depends on this.
 
 ---
 
@@ -180,15 +212,13 @@ the queue only shows the final feedback text.
 ## Tests, linting, production build
 
 ```bash
-# Backend (tests are excluded from the production image, so mount the source)
-docker compose run --rm --no-deps -v "$(pwd)/backend:/app" backend \
-  sh -c "pip install -q pytest pytest-django && python -m pytest tests/ -q"
+./run.sh test                  # backend pytest suite
 
 # Frontend
 cd web
 npm run test                   # Vitest
 npm run lint                   # ESLint
-npm run build                  # production build + type check
+npm run build                  # static export + type check, output in web/out
 ```
 
 ## API reference
@@ -221,8 +251,8 @@ Condition-3 endpoints return `503` when the local model is unreachable.
 
 ## Environment variables
 
-See `.env.example` (root, for compose), `backend/.env.example`, and
-`web/.env.example`. The ones worth knowing about:
+See `.env.example`, the single source for both machines. The ones worth
+knowing about:
 
 | Variable | Where | Purpose |
 |----------|-------|---------|
@@ -234,7 +264,8 @@ See `.env.example` (root, for compose), `backend/.env.example`, and
 | `STUDY_PHASE` | backend | `pilot` by default, set to `main` before real recruitment |
 | `STUDY_ENABLED_CONDITIONS` | backend | e.g. `1,2` to run without Condition 3 |
 | `RESEARCHER_USERNAME` / `RESEARCHER_PASSWORD` | backend | Seeded dashboard login |
-| `NEXT_PUBLIC_API_BASE_URL` | web | Backend URL the browser calls, baked in at build time |
+| `APP_PORT` | compose | The one public port; 3000 on the experiment VM |
+| `DJANGO_ALLOWED_HOSTS` | backend | Must include the hostname the browser uses — Django serves the HTML too |
 
 ## Notes
 

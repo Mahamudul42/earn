@@ -14,8 +14,10 @@ web/out/
 web/coverage/
 *.tsbuildinfo
 
-# Env
+# Env — every .env variant except the committed template
 .env
+.env.*
+!.env.example
 backend/.env
 web/.env
 web/.env.local
