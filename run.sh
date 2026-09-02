@@ -9,13 +9,14 @@
 #   ./run.sh start         Start previously-stopped containers
 #   ./run.sh rebuild       Rebuild images from scratch and start
 #   ./run.sh reset         WIPE the database volume and start fresh (re-seeds)
-#   ./run.sh logs [svc]    Follow logs (optionally for one service: backend|web|db)
+#   ./run.sh logs [svc]    Follow logs (optionally for one service: app|db)
 #   ./run.sh ps            Show container status
 #   ./run.sh seed          Re-run the newsletter/researcher seed
 #   ./run.sh migrate       Apply database migrations
 #   ./run.sh superuser     Create a Django superuser (interactive)
-#   ./run.sh manage <...>  Run any Django manage.py command in the backend
-#   ./run.sh shell         Open a shell inside the backend container
+#   ./run.sh manage <...>  Run any Django manage.py command in the app
+#   ./run.sh test          Run the backend test suite
+#   ./run.sh shell         Open a shell inside the app container
 #   ./run.sh help          Show this help
 #
 set -euo pipefail
@@ -48,29 +49,28 @@ if [ ! -f .env ]; then
 fi
 # shellcheck disable=SC1091
 set -a; . ./.env; set +a
-WEB_PORT="${WEB_PORT:-3000}"
-BACKEND_PORT="${BACKEND_PORT:-8001}"
+APP_PORT="${APP_PORT:-3000}"
 
 urls() {
   echo
-  ok "EARN is up:"
-  echo "    Participant site : http://localhost:${WEB_PORT}"
-  echo "    Researcher login : http://localhost:${WEB_PORT}/researcher/login"
-  echo "    API + docs       : http://localhost:${BACKEND_PORT}/api/docs/"
+  ok "EARN is up on one port:"
+  echo "    Participant site : http://localhost:${APP_PORT}"
+  echo "    Researcher login : http://localhost:${APP_PORT}/researcher/login"
+  echo "    API + docs       : http://localhost:${APP_PORT}/api/docs/"
   echo "    Researcher user  : ${RESEARCHER_USERNAME:-researcher} (password is in .env)"
   echo
 }
 
-wait_for_backend() {
-  info "Waiting for the backend to become healthy…"
+wait_for_app() {
+  info "Waiting for the app to become healthy…"
   for _ in $(seq 1 60); do
-    if curl -fsS "http://localhost:${BACKEND_PORT}/api/health/" >/dev/null 2>&1; then
-      ok "Backend is healthy."
+    if curl -fsS "http://localhost:${APP_PORT}/api/health/" >/dev/null 2>&1; then
+      ok "App is healthy."
       return 0
     fi
     sleep 2
   done
-  warn "Backend did not respond in time — check './run.sh logs backend'."
+  warn "App did not respond in time — check './run.sh logs app'."
 }
 
 cmd="${1:-help}"; shift || true
@@ -79,7 +79,7 @@ case "$cmd" in
   up|start-build)
     info "Building and starting the stack…"
     $DC up -d --build --remove-orphans
-    wait_for_backend
+    wait_for_app
     urls
     ;;
   down)
@@ -91,7 +91,7 @@ case "$cmd" in
     info "Restarting the stack…"
     $DC down --remove-orphans
     $DC up -d --build --remove-orphans
-    wait_for_backend
+    wait_for_app
     urls
     ;;
   stop)
@@ -100,14 +100,14 @@ case "$cmd" in
     ;;
   start)
     $DC start
-    wait_for_backend
+    wait_for_app
     urls
     ;;
   rebuild)
     info "Rebuilding images from scratch…"
     $DC build --no-cache
     $DC up -d --remove-orphans
-    wait_for_backend
+    wait_for_app
     urls
     ;;
   reset)
@@ -116,7 +116,7 @@ case "$cmd" in
     if [ "$confirm" = "yes" ]; then
       $DC down -v --remove-orphans
       $DC up -d --build --remove-orphans
-      wait_for_backend
+      wait_for_app
       urls
     else
       info "Cancelled."
@@ -129,19 +129,24 @@ case "$cmd" in
     $DC ps
     ;;
   seed)
-    $DC exec backend python manage.py seed_study
+    $DC exec app python manage.py seed_study
     ;;
   migrate)
-    $DC exec backend python manage.py migrate
+    $DC exec app python manage.py migrate
     ;;
   superuser)
-    $DC exec backend python manage.py createsuperuser
+    $DC exec app python manage.py createsuperuser
     ;;
   manage)
-    $DC exec backend python manage.py "$@"
+    $DC exec app python manage.py "$@"
+    ;;
+  test)
+    # Tests are excluded from the image, so mount the source over it.
+    $DC run --rm --no-deps -v "$(pwd)/backend:/app" app \
+      sh -c "pip install -q pytest pytest-django && python -m pytest tests/ -q"
     ;;
   shell)
-    $DC exec backend bash
+    $DC exec app bash
     ;;
   help|-h|--help)
     # Print the leading comment block (skip the shebang) as usage text.
