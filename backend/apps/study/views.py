@@ -354,8 +354,14 @@ class ResponseListView(APIView):
             .prefetch_related("ratings", "ratings__rater")
             .order_by("-created_at")
         )
+        blind_queue = (
+            request.query_params.get("unrated") == "1" or is_human_rater(request.user)
+        )
+        # Condition is the blinded variable: never let it filter the queryset
+        # for a human rater, even via the raw query string, or a rater could
+        # deduce a response's condition from which filtered list it appears in.
         condition = request.query_params.get("condition")
-        if condition:
+        if condition and not is_human_rater(request.user):
             qs = qs.filter(participant__condition=condition)
         newsletter = request.query_params.get("newsletter")
         if newsletter:
@@ -363,9 +369,6 @@ class ResponseListView(APIView):
         phase = request.query_params.get("phase")
         if phase in StudyPhase.values:
             qs = qs.filter(participant__study_phase=phase)
-        blind_queue = (
-            request.query_params.get("unrated") == "1" or is_human_rater(request.user)
-        )
         if blind_queue:
             qs = qs.exclude(ratings__rater=request.user)
 

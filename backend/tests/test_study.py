@@ -505,6 +505,61 @@ def test_manager_creates_distinct_blinded_human_raters(client, newsletters):
     assert raters.data[0]["rating_count"] == 1
 
 
+def test_rater_cannot_filter_blind_queue_by_condition(client, newsletters):
+    """A rater must never learn a response's condition, including by filtering
+    the queue with ?condition= to see which ids come back."""
+    User.objects.create_user("manager2", password="x", is_staff=True)
+    manager_token = client.post(
+        "/api/auth/token/", {"username": "manager2", "password": "x"}, format="json"
+    ).data["access"]
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {manager_token}")
+    client.post(
+        "/api/auth/raters/",
+        {
+            "username": "rater_b",
+            "email": "rater-b@example.com",
+            "password": "Secure-Rater-9931!",
+        },
+        format="json",
+    )
+
+    just_ask = Participant.objects.create(
+        condition=Condition.JUST_ASK,
+        newsletter=newsletters[0],
+        status=Participant.Status.COMPLETED,
+        study_phase=StudyPhase.MAIN,
+    )
+    assistant = Participant.objects.create(
+        condition=Condition.ASSISTANT,
+        newsletter=newsletters[0],
+        status=Participant.Status.COMPLETED,
+        study_phase=StudyPhase.MAIN,
+    )
+    fb_just_ask = FeedbackResponse.objects.create(
+        participant=just_ask, final_text="more science"
+    )
+    fb_assistant = FeedbackResponse.objects.create(
+        participant=assistant, final_text="fewer sports stories"
+    )
+
+    client.credentials()
+    rater_token = client.post(
+        "/api/auth/token/",
+        {"username": "rater_b", "password": "Secure-Rater-9931!"},
+        format="json",
+    ).data["access"]
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {rater_token}")
+
+    # A rater asking for only one condition must still see every unrated
+    # response -- the condition query param is not allowed to filter for them.
+    filtered = client.get("/api/research/responses/?unrated=1&condition=3")
+    assert filtered.status_code == 200
+    ids = {row["id"] for row in filtered.data["results"]}
+    assert ids == {fb_just_ask.id, fb_assistant.id}
+    for row in filtered.data["results"]:
+        assert set(row) == {"id", "final_text"}
+
+
 # --- Export -----------------------------------------------------------------
 def test_export_includes_final_draft_and_chat_log(client, newsletters):
     p = Participant.objects.create(
